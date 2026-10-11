@@ -7,10 +7,10 @@
 <p align="center"><b>Dead or Alive 3 · Android · ARM64</b></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+">
-  <img src="https://img.shields.io/badge/ABI-arm64--v8a-3975c6" alt="ARM64">
-  <img src="https://img.shields.io/badge/APK-0.1.0--alpha1-cd583d" alt="APK 0.1.0 alpha1">
-  <img src="https://img.shields.io/badge/Resolution-1%C3%97%20%2F%202%C3%97%20%2F%203%C3%97-8f3d44" alt="1× / 2× / 3×">
+  <img src="docs/images/badges/android.svg" alt="Android 8.0+">
+  <img src="docs/images/badges/abi.svg" alt="ARM64">
+  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha1">
+  <img src="docs/images/badges/resolution.svg" alt="1× / 2× / 3×">
 </p>
 
 <p align="center"><b>Русский</b> · <a href="README.en.md">English</a></p>
