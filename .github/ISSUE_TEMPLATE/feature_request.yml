@@ -1,0 +1,11 @@
+name: Предложение / Feature request
+description: Предложить улучшение DOA3 Android / Suggest a DOA3 Android improvement
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предложение / Proposal
+      description: Какую задачу решит изменение? / What problem would the change solve?
+    validations:
+      required: true

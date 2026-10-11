@@ -1,0 +1,13 @@
+private/
+build/
+__pycache__/
+*.pyc
+*.apk
+*.idsig
+*.jks
+*.keystore
+*.iso
+*.xbe
+*.so
+*.a
+*.o

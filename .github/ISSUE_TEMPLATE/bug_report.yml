@@ -1,0 +1,40 @@
+name: Ошибка / Bug report
+description: Сообщить о проблеме в DOA3 Android / Report a DOA3 Android issue
+title: "[Bug]: "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Версия APK / APK version
+      placeholder: 0.1.0-alpha1
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Устройство и Android / Device and Android
+      placeholder: RG477M, Android 14, GammaOS
+    validations:
+      required: true
+  - type: dropdown
+    id: resolution
+    attributes:
+      label: Разрешение / Resolution
+      options:
+        - 1× (720×480)
+        - 2× (1440×960)
+        - 3× (2160×1440)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Описание и шаги / Description and steps
+      description: Что произошло, что ожидалось, как повторить? / What happened, what was expected, and how to reproduce?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Скриншот или журнал / Screenshot or log
+      description: Без ISO, XBE, игровых ресурсов, ключей подписи и личных данных. / No game data, signing keys or personal information.
