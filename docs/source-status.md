@@ -19,13 +19,11 @@ ISO, XBE, дисковые ресурсы и архив игровых данн�
 Отсутствующие игровые функции завершают выполнение с диагностикой; их наличие
 ограничивает непроверенные пути выполнения alpha-сборки.
 
-Скриншот боя снят во время проверки alpha1 до последней правки исходных пропорций
-на 4:3. Скриншот лаунчера — с финальной установки на RG477M; скриншот настроек —
-проверка интерфейса в браузере. Показания FPS на отдельных кадрах не являются бенчмарком.
+Скриншоты лаунчера, настроек, назначений кнопок, редактора и боя сняты на RG477M
+при проверке alpha2. Показания FPS на отдельных кадрах не являются бенчмарком.
 
 The public source tree excludes generated game code, disc contents and signing keys.
 It is not a self-contained clean-clone build. The APK's release checksum identifies
 the tested binary; it does not imply a reproducible byte-identical APK from public
-files alone. The gameplay capture precedes the final original-aspect correction;
-the launcher capture is from the final device installation, while settings were
-captured during browser UI validation.
+files alone. Launcher, settings, button assignments, layout editor and gameplay
+captures are from alpha2 validation on RG477M. Individual FPS readings are not benchmarks.

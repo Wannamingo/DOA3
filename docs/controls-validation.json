@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-12",
+  "version": "0.1.0-alpha2",
+  "device": "RG477M / GammaOS Android 14 / Mali-G615 MC6 / 1280x960",
+  "apk_sha256": "22be1b7ac39d06cbd7a90db8bde825222fffceb2db1febb432880ac66c5e0e2b",
+  "apk_bytes": 56161887,
+  "signature_and_16k_alignment": "passed",
+  "jvm_touch_model_and_preferences": "passed",
+  "native_arm64_button_bindings": "passed",
+  "launcher_4_sizes": "passed",
+  "device_checks": [
+    "independent touch/gamepad assignments persisted",
+    "physical A mapped to Start pauses a fight",
+    "touch A mapped to Start resumes the fight",
+    "physical left stick moves menu to next mode",
+    "touch left stick moves menu to previous mode",
+    "layout drag changes hitbox",
+    "editor pauses game (unchanged background pixels)",
+    "save and cancel",
+    "reset and cancel",
+    "positions restored after game process restart",
+    "unfinished edit canceled on app background",
+    "final APK installed SHA-256 matches release",
+    "final APK fight: pencil, drag, save, reset and resume"
+  ],
+  "baseline_report": "validation.json",
+  "full_game_completion_tested": false
+}

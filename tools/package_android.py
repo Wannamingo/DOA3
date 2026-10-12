@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse,subprocess,zipfile,hashlib,json,shutil,re,os
+import xml.etree.ElementTree as ET
 parser=argparse.ArgumentParser()
 parser.add_argument('--toolchains',type=Path,required=True)
 parser.add_argument('--output',type=Path,required=True)
@@ -27,7 +28,11 @@ for p in java.rglob('*.java'):
  for method in re.findall(r'\bnative\s+\w+\s+(\w+)\s*\(',text):
   symbol='Java_'+package.replace('.','_')+'_'+p.stem+'_'+method
   assert re.search(r'\bT '+re.escape(symbol)+r'\s*$',symbols,re.M),symbol
-classes=build/'classes';dex=build/'dex';classes.mkdir(exist_ok=True);dex.mkdir(exist_ok=True)
+classes=build/'classes';dex=build/'dex'
+for folder in [classes,dex]:
+ assert folder.resolve().parent==build.resolve() and build.resolve().is_relative_to(root.resolve())
+ if folder.exists():shutil.rmtree(folder)
+ folder.mkdir()
 run([jdk/'javac.exe','--release','17','-encoding','UTF-8','-classpath',str(android)+';'+str(sdl/'classes.jar'),'-d',classes,*sorted(java.rglob('*.java'))])
 jar=build/'app-classes.jar';run([jdk/'jar.exe','--create','--file',jar,'-C',classes,'.'])
 run([jdk/'java.exe','-Djava.io.tmpdir='+str(build),'-cp',sdk/'lib/d8.jar','com.android.tools.r8.D8','--min-api','26','--lib',android,'--output',dex,jar,sdl/'classes.jar'])
@@ -48,7 +53,9 @@ with zipfile.ZipFile(unsigned,'a') as archive:
 aligned=build/'aligned.apk';run([sdk/'zipalign.exe','-P','16','-f','4',unsigned,aligned])
 key=build/'local-debug.jks'
 if not key.exists():run([jdk/'keytool.exe','-genkeypair','-keystore',key,'-storepass','android','-keypass','android','-alias','androiddebugkey','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Local DOA3 Android Development'])
-apk=out/'DOA3-RG477M-arm64-alpha1.apk'
+version=ET.parse(root/'android/AndroidManifest.xml').getroot().get('{http://schemas.android.com/apk/res/android}versionName')
+assert re.fullmatch(r'[0-9.]+-alpha[0-9]+',version),version
+apk=out/('DOA3-RG477M-arm64-'+version.split('-')[-1]+'.apk')
 run([jdk/'java.exe','-jar',sdk/'lib/apksigner.jar','sign','--ks',key,'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--key-pass','pass:android','--out',apk,aligned])
 verification=run([jdk/'java.exe','-jar',sdk/'lib/apksigner.jar','verify','--verbose',apk])
 run([sdk/'zipalign.exe','-c','-P','16','4',apk])

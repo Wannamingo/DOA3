@@ -9,14 +9,14 @@
 <p align="center">
   <img src="docs/images/badges/android.svg" alt="Android 8.0+">
   <img src="docs/images/badges/abi.svg" alt="ARM64">
-  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha1">
+  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha2">
   <img src="docs/images/badges/resolution.svg" alt="1× / 2× / 3×">
 </p>
 
 <p align="center"><a href="README.md">Русский</a> · <b>English</b></p>
 
 <p align="center">
-  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha1/DOA3.apk"><b>Download APK</b></a> ·
+  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha2/DOA3.apk"><b>Download APK</b></a> ·
   <a href="https://github.com/Wannamingo/DOA3/releases">All releases</a> ·
   <a href="https://github.com/Wannamingo/DOA3/issues/new/choose">Report a bug</a>
 </p>
@@ -31,7 +31,7 @@ Your own original USA game copy is required. ISO images, XBE files and game-data
 
 | Component | Value |
 | --- | --- |
-| APK | `0.1.0-alpha1` |
+| APK | `0.1.0-alpha2` |
 | Android package | `org.doa3.port` |
 | Native core | DOA3 USA, ARM64 |
 | Tested device | RG477M, Android 14 / GammaOS, Mali-G615 MC6 |
@@ -41,7 +41,11 @@ Your own original USA game copy is required. ISO images, XBE files and game-data
 - Russian and English launcher with DOA3 artwork and app icon.
 - Direct import from a complete original USA ISO, plus ZIP import of matching game files.
 - Size and SHA-256 verification of all 24 files during import.
-- Gamepad and touch controls, with automatic hiding when a gamepad is connected.
+- Transparent outline touch controls: D-pad, two sticks, colored face buttons and compact shoulder keys.
+- Separate touch and gamepad button assignments, with persistent layouts and reset.
+- Left stick duplicates all eight D-pad directions.
+- In-game layout editor: drag controls while the game is paused, then save, cancel or reset.
+- Automatic touch-control hiding when a gamepad is connected.
 - Original 4:3 proportions or 16:9 display.
 - **1×, 2× and 3×** internal resolution settings.
 - A/B and X/Y swapping, and a menu for returning to the launcher.
@@ -64,6 +68,10 @@ The original 720 × 480 buffer is displayed at 4:3. Raising internal resolution 
 | --- | --- |
 | ![DOA3 launcher on RG477M](docs/images/screenshots/launcher.png) | ![Display, resolution and control settings](docs/images/screenshots/settings.png) |
 
+| Button assignments | Layout editor |
+| --- | --- |
+| ![Separate touch and gamepad layouts](docs/images/screenshots/mapping.png) | ![Drag touch controls during the game](docs/images/screenshots/layout-editor.png) |
+
 ## Requirements
 
 | Item | Requirement |
@@ -73,13 +81,13 @@ The original 720 × 480 buffer is displayed at 4:3. Raising internal resolution 
 | Graphics | OpenGL ES 3.0, as declared by the APK manifest |
 | Game | Original USA version of Dead or Alive 3 |
 | Import storage | At least 5 GiB free in addition to the ISO is recommended |
-| APK size | 56,145,503 bytes, approximately 53.5 MiB |
+| APK size | 56,161,887 bytes, approximately 53.5 MiB |
 
 Extracted game files total 4,191,140,992 bytes. Re-import keeps the old copy until the new copy is verified, and the game also needs space for its own cache.
 
 ## Installation
 
-1. Download **DOA3.apk** from the [alpha1 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha1) and install it.
+1. Download **DOA3.apk** from the [alpha2 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha2) and install it.
 2. Copy your own **Dead or Alive 3 (USA) (En,Ja).iso** to the device. The tested full Redump ISO is **7,825,162,240 bytes**. Use internal storage or exFAT for a file of this size.
 3. Open DOA3 and select **Import ISO / ZIP**.
 4. Select the ISO and keep the app open until verification finishes.
@@ -92,6 +100,8 @@ Installing an APK update over the existing version preserves imported files, set
 ## Controls and settings
 
 **Start** pauses the game. **Select** opens the app menu for returning to the launcher. **L1 → Black**, **R1 → White**, **L2/R2 → Xbox triggers**. Enable A/B and X/Y swapping if button labels differ.
+
+**Settings → Button assignments → Configure** opens separate touch and gamepad layouts. To move controls, tap the small pencil button next to FPS during the game. Gameplay pauses while editing; tap Save to continue. See [controls and layout editing](docs/controls.md).
 
 Settings include aspect ratio, internal resolution, touch controls and launcher language. Display settings apply the next time the game starts. RU/EN changes the app interface, not the game's text.
 
