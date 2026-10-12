@@ -66,6 +66,15 @@ extern "C" JNIEXPORT jboolean JNICALL Java_org_doa3_port_GameActivity_nativeCons
 extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativeRequestExit(JNIEnv *,jclass)
 {SDL_Event event{};event.type=SDL_EVENT_QUIT;SDL_PushEvent(&event);}
 extern "C" float recomp_android_presenter_fps(void);
+extern "C" void recomp_android_display_settings(unsigned,unsigned);
+extern "C" unsigned recomp_android_consume_display_failure(void);
+extern "C" uint64_t recomp_android_presented_frames(void);
+extern "C" JNIEXPORT jlong JNICALL Java_org_doa3_port_GameActivity_nativePresentedFrames(JNIEnv *,jclass)
+{return jlong(recomp_android_presented_frames());}
+extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativeDisplaySettings(JNIEnv *,jclass,jint scale,jint aspect)
+{if(scale>=1&&scale<=3&&aspect>=0&&aspect<=2)recomp_android_display_settings(unsigned(scale),unsigned(aspect));}
+extern "C" JNIEXPORT jint JNICALL Java_org_doa3_port_GameActivity_nativeConsumeDisplayFailure(JNIEnv *,jclass)
+{return jint(recomp_android_consume_display_failure());}
 extern "C" JNIEXPORT jfloat JNICALL Java_org_doa3_port_GameActivity_nativeGetFps(JNIEnv *,jclass)
 {return recomp_android_presenter_fps();}
 bool recomp_input_host_sample(uint32_t port,RecompInputGamepad *result)

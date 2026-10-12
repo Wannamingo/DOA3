@@ -20,6 +20,7 @@ final class TouchControlsView extends View {
         void input(int digital,int analog,float lx,float ly,float rx,float ry);
         void reset();
         void menu();
+        void settings();
         void editing(boolean active);
     }
     private final Listener listener;
@@ -27,9 +28,9 @@ final class TouchControlsView extends View {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect=new RectF();
     private final Path dpadArm=new Path();
-    private final RectF editButton=new RectF(),toolbar=new RectF();
+    private final RectF editButton=new RectF(),settingsButton=new RectF(),toolbar=new RectF();
     private final SharedPreferences layoutPreferences;
-    private final boolean english;
+    private boolean english;
     private boolean editing,controlsVisible=true;
     private Map<String,float[]> beforeEdit;
     private int dragPointer=-1;
@@ -50,11 +51,13 @@ final class TouchControlsView extends View {
     }
     void clear(){model.clear();listener.reset();invalidate();}
     void setBindings(int[] bindings){model.setBindings(bindings);listener.reset();invalidate();}
+    void setLanguage(boolean english){this.english=english;invalidate();}
     void setControlsVisible(boolean visible){controlsVisible=visible;if(!visible)clear();invalidate();}
     boolean isEditing(){return editing;}
     void cancelEditing(){if(editing)finishEditing(false);}
     void saveEditing(){if(editing)finishEditing(true);}
-    private void beginEditing(){
+    void beginEditing(){
+        if(editing)return;
         beforeEdit=model.positions();dragPointer=-1;dragged=null;clear();editing=true;
         listener.editing(true);invalidate();
     }
@@ -73,6 +76,7 @@ final class TouchControlsView extends View {
         dpadArm.lineTo(-r*.27f,-r*.32f);dpadArm.close();
         float s=model.unit(),side=Math.max(40,s*.052f),cx=w*.5f+s*.11f;
         editButton.set(cx-side*.5f,s*.012f,cx+side*.5f,s*.012f+side);
+        settingsButton.set(editButton.right+s*.012f,editButton.top,editButton.right+s*.012f+side,editButton.bottom);
         float tw=Math.min(w-s*.08f,s*.85f),top=h*.14f;
         toolbar.set((w-tw)*.5f,top,(w+tw)*.5f,top+s*.065f);
     }
@@ -86,6 +90,7 @@ final class TouchControlsView extends View {
         int action=event.getActionMasked(),index=event.getActionIndex();
         if(editing)return editTouch(event);
         if(action==MotionEvent.ACTION_DOWN&&editButton.contains(event.getX(),event.getY())){beginEditing();return true;}
+        if(action==MotionEvent.ACTION_DOWN&&settingsButton.contains(event.getX(),event.getY())){clear();listener.settings();return true;}
         if(!controlsVisible)return false;
         if(action==MotionEvent.ACTION_CANCEL){clear();return true;}
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN) {
@@ -165,6 +170,9 @@ final class TouchControlsView extends View {
         style(0x99ffffff,Paint.Style.STROKE,stroke);canvas.drawRoundRect(editButton,9,9,paint);
         float cx=editButton.centerX(),cy=editButton.centerY(),r=editButton.width()*.21f;
         canvas.drawLine(cx-r,cy+r,cx+r,cy-r,paint);canvas.drawLine(cx-r,cy+r,cx-r*.9f,cy+r*.4f,paint);canvas.drawLine(cx-r,cy+r,cx-r*.4f,cy+r*.9f,paint);
+        style(0x55000000,Paint.Style.FILL,stroke);canvas.drawRoundRect(settingsButton,9,9,paint);
+        style(0x99ffffff,Paint.Style.STROKE,stroke);canvas.drawRoundRect(settingsButton,9,9,paint);
+        label(canvas,"⚙",settingsButton.centerX(),settingsButton.centerY(),settingsButton.width()*.64f,0xbfffffff);
     }
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);TouchControlsModel.State state=model.state();

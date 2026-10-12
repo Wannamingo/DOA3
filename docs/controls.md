@@ -1,12 +1,25 @@
 # Управление / Controls
 
+## Настройки во время игры (alpha3)
+
+Нажмите **⚙ рядом с FPS** или **Select / ≡ → Настройки**. На время настройки игра
+приостанавливается. Доступны разрешение 1×/2×/3×, формат изображения, показ
+экранных кнопок, перестановка A/B и X/Y, назначения экрана и геймпада и язык приложения.
+Нажмите **«Продолжить игру»**: изменения применятся к текущему бою без перезапуска.
+«Расположение экранных элементов» открывает редактор; нижние пункты доступны прокруткой.
+Настройки сохраняются и для следующего запуска игры.
+
+Разрешение меняет внутренний буфер, а формат — пропорции показанного изображения.
+Если GPU не сможет выделить новые буферы, игра сохранит прежнее разрешение и покажет сообщение.
+
 ## Назначение кнопок
 
 Откройте **Настройки → Назначение кнопок → Настроить**. Вкладки «Экранные кнопки»
 и «Геймпад» хранят независимые раскладки. Выберите действие Xbox напротив нужной
 кнопки: A/B/X/Y, Black/White, LT/RT, Start, Back, нажатия стиков, направления
 крестовины, меню приложения или «Не назначено». Изменения сохраняются сразу и
-применяются при следующем запуске игры. Несколько кнопок могут иметь одно действие.
+применяются при запуске игры. Если назначения открыты через настройки во время игры,
+они применятся при возвращении в текущий бой. Несколько кнопок могут иметь одно действие.
 
 Подписи экранных кнопок отражают назначенные действия. Физические A/B/X/Y указаны
 по расположению Xbox: A снизу, B справа, X слева, Y сверху. Индивидуальное назначение
@@ -39,9 +52,16 @@
 
 ## English
 
+Tap **⚙ beside FPS** or **Select / ≡ → Settings**. Gameplay pauses while you change
+resolution, aspect ratio, touch visibility, button swapping, separate touch/gamepad
+assignments or app language. **Resume game** applies the changes to the current
+fight without restarting. Scroll to reach the touch-position editor. Settings also
+persist for future launches. Failed GPU allocations retain the previous resolution.
+
 Open **Settings → Button assignments → Configure** for independent touch and
 gamepad layouts. Select an Xbox action for each source button. Assignments save
-automatically and apply on the next game launch. Individual gamepad assignments
+automatically. Launcher changes apply on game launch; in-game changes apply
+when returning to the current fight. Individual gamepad assignments
 override the general A/B and X/Y swap. Reset affects only the selected layout.
 The left stick duplicates all eight D-pad directions, respecting their assignments.
 

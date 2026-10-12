@@ -9,14 +9,14 @@
 <p align="center">
   <img src="docs/images/badges/android.svg" alt="Android 8.0+">
   <img src="docs/images/badges/abi.svg" alt="ARM64">
-  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha2">
+  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha3">
   <img src="docs/images/badges/resolution.svg" alt="1× / 2× / 3×">
 </p>
 
 <p align="center"><a href="README.md">Русский</a> · <b>English</b></p>
 
 <p align="center">
-  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha2/DOA3.apk"><b>Download APK</b></a> ·
+  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha3/DOA3.apk"><b>Download APK</b></a> ·
   <a href="https://github.com/Wannamingo/DOA3/releases">All releases</a> ·
   <a href="https://github.com/Wannamingo/DOA3/issues/new/choose">Report a bug</a>
 </p>
@@ -31,13 +31,14 @@ Your own original USA game copy is required. ISO images, XBE files and game-data
 
 | Component | Value |
 | --- | --- |
-| APK | `0.1.0-alpha2` |
+| APK | `0.1.0-alpha3` |
 | Android package | `org.doa3.port` |
 | Native core | DOA3 USA, ARM64 |
 | Tested device | RG477M, Android 14 / GammaOS, Mali-G615 MC6 |
 
 ## Features
 
+- All settings are available in-game: tap ⚙ beside FPS or use Select → Settings. Resolution, aspect ratio and controls change without restarting the fight.
 - Russian and English launcher with DOA3 artwork and app icon.
 - Direct import from a complete original USA ISO, plus ZIP import of matching game files.
 - Size and SHA-256 verification of all 24 files during import.
@@ -72,6 +73,10 @@ The original 720 × 480 buffer is displayed at 4:3. Raising internal resolution 
 | --- | --- |
 | ![Separate touch and gamepad layouts](docs/images/screenshots/mapping.png) | ![Drag touch controls during the game](docs/images/screenshots/layout-editor.png) |
 
+**In-game settings**
+
+![Change settings without leaving the fight](docs/images/screenshots/game-settings.png)
+
 ## Requirements
 
 | Item | Requirement |
@@ -81,13 +86,13 @@ The original 720 × 480 buffer is displayed at 4:3. Raising internal resolution 
 | Graphics | OpenGL ES 3.0, as declared by the APK manifest |
 | Game | Original USA version of Dead or Alive 3 |
 | Import storage | At least 5 GiB free in addition to the ISO is recommended |
-| APK size | 56,161,887 bytes, approximately 53.5 MiB |
+| APK size | 56,178,271 bytes, approximately 53.5 MiB |
 
 Extracted game files total 4,191,140,992 bytes. Re-import keeps the old copy until the new copy is verified, and the game also needs space for its own cache.
 
 ## Installation
 
-1. Download **DOA3.apk** from the [alpha2 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha2) and install it.
+1. Download **DOA3.apk** from the [alpha3 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha3) and install it.
 2. Copy your own **Dead or Alive 3 (USA) (En,Ja).iso** to the device. The tested full Redump ISO is **7,825,162,240 bytes**. Use internal storage or exFAT for a file of this size.
 3. Open DOA3 and select **Import ISO / ZIP**.
 4. Select the ISO and keep the app open until verification finishes.
@@ -103,7 +108,7 @@ Installing an APK update over the existing version preserves imported files, set
 
 **Settings → Button assignments → Configure** opens separate touch and gamepad layouts. To move controls, tap the small pencil button next to FPS during the game. Gameplay pauses while editing; tap Save to continue. See [controls and layout editing](docs/controls.md).
 
-Settings include aspect ratio, internal resolution, touch controls and launcher language. Display settings apply the next time the game starts. RU/EN changes the app interface, not the game's text.
+Settings include aspect ratio, internal resolution, touch controls and app language. Launcher changes apply on game launch. In-game changes apply when returning to the current fight. RU/EN changes the app interface, not the game's text.
 
 ## Validation and source
 

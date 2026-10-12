@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-12",
+  "version": "0.1.0-alpha3",
+  "device": "RG477M / GammaOS Android 14 / Mali-G615 MC6 / 1280x960",
+  "apk_sha256": "42942b28fa0e420e66f6f581dd77450ac5ee7c02852bb532b557f5a6eef35696",
+  "apk_bytes": 56178271,
+  "signature_and_16k_alignment": "passed",
+  "installed_apk_sha256_matches": true,
+  "device_checks": [
+    "gear and Select menu open in-game settings",
+    "1x, 2x and 3x live resolution requests verified in native logs",
+    "16:9 live presentation verified",
+    "touch visibility applies on return",
+    "touch A mapped to Start resumes paused fight",
+    "physical A mapped to Start pauses same fight",
+    "same game process PID 24283 across live settings and remapping tests",
+    "RU/EN settings UI",
+    "settings to layout editor waits for rendered background",
+    "final APK live 3x to 2x and editor transition",
+    "original preferences restored; temporary button mappings reset"
+  ],
+  "real_gpu_test": "1x/2x/3x transitions preserve main and offscreen pixel contents; failed allocation retains previous targets",
+  "earlier_controls_report": "controls-validation.json",
+  "full_game_completion_tested": false
+}
