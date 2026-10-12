@@ -56,7 +56,7 @@ python tools/package_android.py --toolchains "C:/path/to/toolchains" --output "C
 ```powershell
 python tools/verify_controls.py --toolchains "C:/path/to/toolchains"
 python tools/verify_iso.py "C:/path/to/Dead or Alive 3 (USA) (En,Ja).iso" --toolchains "C:/path/to/toolchains"
-python tools/build_android.py --toolchains "C:/path/to/toolchains" doa3_portable_simd_test doa3_fiber_context_test doa3_save_test doa3_sha_test doa3_shader_test doa3_gles_test doa3_button_bindings_test doa3_live_display_test
+python tools/build_android.py --toolchains "C:/path/to/toolchains" doa3_portable_simd_test doa3_fiber_context_test doa3_save_test doa3_sha_test doa3_shader_test doa3_gles_test doa3_button_bindings_test doa3_live_display_test doa3_iso_disc_test
 ```
 
 Исполняемые ARM64-тесты появляются в `private/build-arm64/` и запускаются на Android.

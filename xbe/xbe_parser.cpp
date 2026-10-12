@@ -6,6 +6,9 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#ifdef __ANDROID__
+#include "host_file_compat.h"
+#endif
 
 namespace doaxbv {
 namespace {
@@ -192,6 +195,16 @@ XbeParseResult XbeParser::parse(const std::filesystem::path& path) const
 {
     XbeParseResult result;
 
+#ifdef __ANDROID__
+    HANDLE input=CreateFileA(path.string().c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+    LARGE_INTEGER length{};
+    if(input==INVALID_HANDLE_VALUE){result.errors.push_back("failed to open XBE");return result;}
+    if(!GetFileSizeEx(input,&length)||length.QuadPart<0||length.QuadPart>64*1024*1024){CloseHandle(input);result.errors.push_back("invalid XBE size");return result;}
+    std::vector<std::uint8_t> bytes(static_cast<size_t>(length.QuadPart));
+    size_t at=0;
+    while(at<bytes.size()){DWORD got=0;if(!ReadFile(input,bytes.data()+at,static_cast<DWORD>(std::min<size_t>(bytes.size()-at,1024*1024)),&got,nullptr)||!got){CloseHandle(input);result.errors.push_back("failed to read XBE");return result;}at+=got;}
+    CloseHandle(input);
+#else
     std::ifstream input(path, std::ios::binary);
     if (!input) {
         result.errors.push_back("failed to open XBE");
@@ -201,6 +214,7 @@ XbeParseResult XbeParser::parse(const std::filesystem::path& path) const
     std::vector<std::uint8_t> bytes(
         (std::istreambuf_iterator<char>(input)),
         std::istreambuf_iterator<char>());
+#endif
     result.fileBytes = bytes;
     result.metadata.fileSize = bytes.size();
 

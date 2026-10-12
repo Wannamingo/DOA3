@@ -17,7 +17,6 @@ public class LauncherActivity extends Activity {
     private SharedPreferences preferences;
     private boolean english;
     private volatile boolean importing;
-    private static final String XBE_HASH="e523dd15d0765899a43a1824c023e0219d129e9a8b41e8213e4e645755d2bfa3";
     File disc(){return new File(getFilesDir(),"disc");}
     private String text(String ru,String en){return english ? en : ru;}
     static String savedAspect(SharedPreferences preferences){
@@ -54,9 +53,9 @@ public class LauncherActivity extends Activity {
         Button mappings=new Button(this);mappings.setText(text("Назначение кнопок","Button assignments"));layout.addView(mappings);
         mappings.setOnClickListener(v->{if(saveOptions())startActivity(new Intent(this,ControlMappingActivity.class));});
         play=new Button(this);play.setText(text("Играть","Play"));layout.addView(play);play.setOnClickListener(v->{if(saveOptions())startActivity(new Intent(this,GameActivity.class));else status.setText(text("Не удалось сохранить настройки.","Could not save settings."));});
-        importButton=new Button(this);importButton.setText(text("Импортировать файлы USA из ZIP","Import USA files from ZIP"));layout.addView(importButton);
-        importButton.setOnClickListener(v->{Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.setType("application/zip");intent.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(intent,1);});
-        TextView help=new TextView(this);help.setText(text("Формат и язык применяются при запуске игры.\nL1 — Black, R1 — White, L2/R2 — триггеры Xbox.\nЕсли буквы кнопок не совпадают, включите перестановку A/B и X/Y.\nСохранения хранятся в приложении.\nДля импорта нужен ZIP из вашей копии игры для этой сборки.","Aspect ratio and language apply when the game starts.\nL1 — Black, R1 — White, L2/R2 — Xbox triggers.\nIf the button labels differ, enable A/B and X/Y swapping.\nSaves are stored in the application.\nImport the ZIP from your game copy prepared for this build."));layout.addView(help);ScrollView scroll=new ScrollView(this);scroll.addView(layout);setContentView(scroll);refresh();play.requestFocus();
+        importButton=new Button(this);importButton.setText(text("Выбрать ISO · Читать напрямую","Select ISO · Read directly"));layout.addView(importButton);
+        importButton.setOnClickListener(v->{Intent intent=IsoPicker.intent();startActivityForResult(intent,1);});
+        TextView help=new TextView(this);help.setText(text("Формат и язык применяются при запуске игры.\nL1 — Black, R1 — White, L2/R2 — триггеры Xbox.\nЕсли буквы кнопок не совпадают, включите перестановку A/B и X/Y.\nСохранения хранятся в приложении.\nВыберите ISO DOA3 USA. Образ читается напрямую и должен оставаться на устройстве.","Aspect ratio and language apply when the game starts.\nL1 — Black, R1 — White, L2/R2 — Xbox triggers.\nIf the button labels differ, enable A/B and X/Y swapping.\nSaves are stored in the application.\nSelect your DOA3 USA ISO. It is read directly and must remain available."));layout.addView(help);ScrollView scroll=new ScrollView(this);scroll.addView(layout);setContentView(scroll);refresh();play.requestFocus();
         language.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
             public void onNothingSelected(AdapterView<?> parent){}
             public void onItemSelected(AdapterView<?> parent,android.view.View view,int position,long id){
@@ -68,32 +67,21 @@ public class LauncherActivity extends Activity {
     @Override protected void onResume(){super.onResume();if(status!=null&&!importing)refresh();}
     private void refresh(){
         boolean ready=false;
-        try{DiscImporter.recover(getFilesDir());ready=new File(disc(),".verified-usa").isFile()
-            &&XBE_HASH.equals(DiscImporter.hash(new File(disc(),"default.xbe")))
-            &&new File(disc(),"loadfile.afs").isFile();}catch(Exception ignored){}
+        try(IsoSource.Opened iso=IsoSource.open(this)){ready=true;}catch(Exception ignored){}
         play.setEnabled(ready&&!importing);
-        status.setText(ready ? text("Официальные ресурсы USA установлены.\nИсходные голоса.","Official USA resources installed.\nOriginal voices.")
-            : text("Импортируйте DOA3-USA-game-data.zip.\nСтарые игровые файлы будут заменены; сохранения останутся.","Import DOA3-USA-game-data.zip.\nExisting game files will be replaced; saves will be retained."));
+        status.setText(ready ? text("ISO подключён. Чтение напрямую.","ISO connected. Reading directly.")
+            : text("Выберите ISO DOA3 USA. Сохранения хранятся отдельно.","Select a DOA3 USA ISO. Saves are stored separately."));
     }
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=1||result!=RESULT_OK||data==null)return;Uri uri=data.getData();if(uri==null)return;importing=true;play.setEnabled(false);importButton.setEnabled(false);language.setEnabled(false);
-        new Thread(()->{String resultText;try{importZip(uri);resultText=text("Импорт завершён.","Import complete.");}catch(Exception error){resultText=text("Не удалось импортировать: ","Import failed: ")+error.getMessage();}final String message=resultText;runOnUiThread(()->{importing=false;importButton.setEnabled(true);language.setEnabled(true);refresh();status.setText(message);});},"doaxbv-import").start();}
-    private void importZip(Uri uri)throws Exception{
-        android.app.ActivityManager manager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
-        List<android.app.ActivityManager.RunningAppProcessInfo> processes=manager.getRunningAppProcesses();
-        if(processes!=null)for(android.app.ActivityManager.RunningAppProcessInfo process:processes)
-            if((getPackageName()+":game").equals(process.processName))throw new IOException(text("Сначала выйдите из игры через Select","Exit the game using Select first"));
-        Map<String,DiscImporter.Expected> expected=new HashMap<>();
-        try(InputStream input=getAssets().open("disc-identity.json")){
-            ByteArrayOutputStream bytes=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int n;
-            while((n=input.read(buffer))!=-1)bytes.write(buffer,0,n);
-            JSONObject files=new JSONObject(bytes.toString("UTF-8"));Iterator<String> names=files.keys();
-            while(names.hasNext()){String name=names.next();JSONObject file=files.getJSONObject(name);
-                expected.put(name,new DiscImporter.Expected(file.getLong("size"),file.getString("sha256")));}
-        }
-        try(InputStream input=getContentResolver().openInputStream(uri)){
-            if(input==null)throw new IOException(text("Не удалось открыть ZIP","Could not open the ZIP"));
-            DiscImporter.install(getFilesDir(),input,expected,
-                count->runOnUiThread(()->status.setText(text("Импортировано ","Imported ")+(count/(1024*1024))+text(" МБ"," MB"))));
-        }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);if(request!=1||result!=RESULT_OK||data==null||importing)return;
+        Uri uri=data.getData();if(uri==null)return;
+        try{IsoPicker.persist(this,data);}catch(Exception error){status.setText(error.getMessage());return;}
+        importing=true;play.setEnabled(false);importButton.setEnabled(false);language.setEnabled(false);
+        status.setText(text("Проверка ISO без копирования…","Checking ISO without copying…"));
+        new Thread(()->{String resultText;
+            try{IsoPicker.requireGameStopped(this);IsoSource.attach(this,uri,(count,total)->runOnUiThread(()->status.setText(text("Проверено ","Verified ")+(count/1048576)+" / "+(total/1048576)+" MiB")));resultText=text("ISO подключён · Чтение напрямую","ISO connected · Direct reading");}
+            catch(Exception error){resultText=text("Не удалось подключить ISO: ","Could not connect ISO: ")+error.getMessage();}
+            final String message=resultText;runOnUiThread(()->{importing=false;importButton.setEnabled(true);language.setEnabled(true);refresh();status.setText(message);});
+        },"doa3-iso-verify").start();
     }
 }

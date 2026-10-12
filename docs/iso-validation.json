@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-12",
+  "version": "0.1.0-alpha4",
+  "device": "RG477M / GammaOS Android 14 / Mali-G615 MC6 / 1280x960",
+  "apk_sha256": "9717915b9cbcb38d6442e3b20fcfd8e3db5f6074602cae974de87977c7594752",
+  "apk_bytes": 56260191,
+  "installed_apk_sha256_matches": true,
+  "signature_and_16k_alignment": "passed",
+  "iso_bytes": 7825162240,
+  "verified_files": 24,
+  "verified_resource_bytes": 4191140992,
+  "saved_extent_table_bytes": 1516,
+  "extracted_virtual_disc_directory_exists": false,
+  "device_checks": [
+    "ISO picker allows ISO and disables the ZIP item",
+    "all 24 sizes and SHA-256 values checked without extraction",
+    "native Xbox D drive resolves to virtual iso-disc paths",
+    "XBE read through the same mounted ISO descriptor",
+    "intro and mode/character menus render",
+    "fight renders; physical Start opens and closes pause",
+    "forced process restart retains ISO grant and selection; no reselection or full re-verification",
+    "launcher restored and device released after tests"
+  ],
+  "native_iso_vfs_test": "passed: offsets beyond 4 GiB; independent cursors; case-insensitive paths; slash conversion; bounded reads and EOF; metadata and directory enumeration; read-only enforcement; invalid extents/duplicate names rejected; normal save-file IO unchanged",
+  "launcher_4_sizes_ru_en": "passed; ZIP removed from UI/help",
+  "previous_reports": [
+    "controls-validation.json",
+    "settings-validation.json"
+  ],
+  "full_game_completion_tested": false
+}

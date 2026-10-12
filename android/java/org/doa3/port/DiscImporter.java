@@ -4,7 +4,6 @@ import java.io.*;
 import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.util.*;
-import java.util.zip.*;
 
 /** Validated disc replacement; saves live beside the disc and are never moved. */
 final class DiscImporter {
@@ -31,19 +30,6 @@ final class DiscImporter {
         File disc=new File(root,"disc"),backup=new File(root,"disc.previous");
         if(!disc.exists()&&backup.exists()&&!backup.renameTo(disc))
             throw new IOException("Не удалось восстановить прежние игровые файлы");
-    }
-    static void install(File root,InputStream input,Map<String,Expected> expected,Progress progress)throws Exception {
-        replace(root,expected,progress,writer->{
-            try(ZipInputStream zip=new ZipInputStream(new BufferedInputStream(input))){
-                ZipEntry entry;int count=0;
-                while((entry=zip.getNextEntry())!=null){
-                    if(++count>20000)throw new IOException("Слишком много файлов");
-                    String name=entry.getName().replace('\\','/');
-                    writer.destination(name);
-                    if(!entry.isDirectory())writer.file(name,zip);
-                }
-            }
-        });
     }
     static void installIso(File root,FileChannel channel,Map<String,Expected> expected,Progress progress)throws Exception {
         XboxIso iso=new XboxIso(channel);

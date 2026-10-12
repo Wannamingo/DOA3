@@ -26,10 +26,10 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
 
-/** A local, offline presentation layer over the original game and disc importer. */
+/** A local, offline presentation layer over the game and direct ISO reader. */
 public final class BeachLauncherActivity extends Activity {
     private static final String PAGE="file:///android_asset/launcher/index.html";
-    private static final String XBE_HASH="e523dd15d0765899a43a1824c023e0219d129e9a8b41e8213e4e645755d2bfa3";
+
     private WebView web;
     private SharedPreferences preferences;
     private volatile boolean importing,ready;
@@ -41,7 +41,6 @@ public final class BeachLauncherActivity extends Activity {
 
     private boolean english(){return "en".equals(preferences.getString("language","ru"));}
     private String text(String ru,String en){return english()?en:ru;}
-    private File disc(){return new File(getFilesDir(),"disc");}
 
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
@@ -131,7 +130,7 @@ public final class BeachLauncherActivity extends Activity {
         });}
         @JavascriptInterface public void importDisc(){runOnUiThread(()->{
             if(importing)return;
-            Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.setType("*/*");intent.addCategory(Intent.CATEGORY_OPENABLE);
+            Intent intent=IsoPicker.intent();
             try{startActivityForResult(intent,1);}
             catch(ActivityNotFoundException error){fail(text("Не найден системный выбор файлов. Включите приложение «Файлы».","System file picker unavailable. Enable the Files application."));}
         });}
@@ -148,18 +147,17 @@ public final class BeachLauncherActivity extends Activity {
     private void refresh(){
         final int generation=refreshGeneration.incrementAndGet();
         new Thread(()->{
-            boolean found=false;
-            try{DiscImporter.recover(getFilesDir());found=new File(disc(),".verified-usa").isFile()
-                &&XBE_HASH.equals(DiscImporter.hash(new File(disc(),"default.xbe")))&&new File(disc(),"loadfile.afs").isFile();}
-            catch(Exception ignored){}
-            final boolean verified=found;
+            boolean found=false;String error="";
+            if(IsoSource.selected(this))try(IsoSource.Opened iso=IsoSource.open(this)){found=true;}
+            catch(Exception unavailable){error=text("ISO недоступен: ","ISO unavailable: ")+unavailable.getMessage();}
+            final boolean verified=found;final String failure=error;
             runOnUiThread(()->{if(!destroyed&&!importing&&generation==refreshGeneration.get()){
-                ready=verified;statusKind=ready?"ready":"missing";message="";progress=-1;pushState();
+                ready=verified;statusKind=ready?"ready":failure.isEmpty()?"missing":"error";message=failure;progress=-1;pushState();
             }});
         },"doaxbv-launcher-check").start();
     }
     @Override public void onBackPressed(){
-        if(importing){Toast.makeText(this,text("Дождитесь завершения импорта","Wait for the import to finish"),Toast.LENGTH_SHORT).show();return;}
+        if(importing){Toast.makeText(this,text("Дождитесь завершения проверки ISO","Wait for ISO verification to finish"),Toast.LENGTH_SHORT).show();return;}
         if(pageLoaded&&web!=null)web.evaluateJavascript("window.handleBack&&window.handleBack()",result->{if(!"true".equals(result))finish();});
         else super.onBackPressed();
     }
@@ -183,61 +181,29 @@ public final class BeachLauncherActivity extends Activity {
         super.onActivityResult(request,result,data);
         if(request!=1||result!=RESULT_OK||data==null||importing)return;
         Uri uri=data.getData();if(uri==null)return;
+        try{IsoPicker.persist(this,data);}catch(Exception error){fail(error.getMessage());return;}
         importing=true;refreshGeneration.incrementAndGet();progress=0;statusKind="busy";
-        message=text("Чтение образа и проверка игровых файлов…","Reading the image and checking game files…");pushState();
+        message=text("Проверка ISO без копирования файлов…","Checking ISO without copying files…");pushState();
         importOrientation=getRequestedOrientation();setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         new Thread(()->{
             String resultText;boolean succeeded;
-            try{importGame(uri);resultText=text("Импорт завершён · Можно играть","Import complete · Ready to play");succeeded=true;}
-            catch(Exception error){resultText=text("Не удалось импортировать: ","Import failed: ")+error.getMessage();succeeded=false;}
+            try{
+                IsoPicker.requireGameStopped(this);
+                IsoSource.attach(this,uri,(count,total)->runOnUiThread(()->{
+                    progress=(int)Math.min(100,count*100/total);
+                    message=text("Проверено ","Verified ")+(count/1048576)+" / "+(total/1048576)+text(" МБ · Файлы не копируются"," MiB · No files copied");pushState();
+                }));
+                resultText=text("ISO подключён · Чтение напрямую","ISO connected · Direct reading");succeeded=true;
+            }catch(Exception error){resultText=text("Не удалось подключить ISO: ","Could not connect ISO: ")+error.getMessage();succeeded=false;}
             final String completed=resultText;final boolean success=succeeded;
             boolean installed=false;
-            try{DiscImporter.recover(getFilesDir());installed=new File(disc(),".verified-usa").isFile()
-                &&XBE_HASH.equals(DiscImporter.hash(new File(disc(),"default.xbe")))&&new File(disc(),"loadfile.afs").isFile();}catch(Exception ignored){}
+            try(IsoSource.Opened iso=IsoSource.open(this)){installed=true;}catch(Exception ignored){}
             final boolean verified=installed;
             runOnUiThread(()->{
                 importing=false;ready=verified;progress=-1;statusKind=success?"ready":"error";message=completed;
                 if(!destroyed){getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);setRequestedOrientation(importOrientation);pushState();}
             });
-        },"doaxbv-import").start();
-    }
-
-    // Uses the original transactional importer unchanged, including identity checks and recovery.
-    private void importGame(Uri uri)throws Exception{
-        android.app.ActivityManager manager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
-        List<android.app.ActivityManager.RunningAppProcessInfo> processes=manager.getRunningAppProcesses();
-        if(processes!=null)for(android.app.ActivityManager.RunningAppProcessInfo process:processes)
-            if((getPackageName()+":game").equals(process.processName))throw new IOException(text("Сначала выйдите из игры через Select","Exit the game using Select first"));
-        Map<String,DiscImporter.Expected> expected=new HashMap<>();
-        try(InputStream input=getAssets().open("disc-identity.json")){
-            ByteArrayOutputStream bytes=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int n;
-            while((n=input.read(buffer))!=-1)bytes.write(buffer,0,n);
-            JSONObject files=new JSONObject(bytes.toString("UTF-8"));Iterator<String> names=files.keys();
-            while(names.hasNext()){String name=names.next();JSONObject file=files.getJSONObject(name);
-                expected.put(name,new DiscImporter.Expected(file.getLong("size"),file.getString("sha256")));}
-        }
-        boolean zip;
-        try(InputStream input=getContentResolver().openInputStream(uri)){
-            if(input==null)throw new IOException(text("Не удалось открыть файл","Could not open the file"));
-            zip=input.read()=='P'&&input.read()=='K';
-        }
-        final long total=expected.values().stream().mapToLong(file->file.size).sum();
-        DiscImporter.Progress callback=count->runOnUiThread(()->{
-            progress=(int)Math.min(100,count*100/total);
-            message=text("Импортировано ","Imported ")+(count/(1024*1024))+" / "+(total/(1024*1024))+text(" МБ"," MB")+" · "+progress+"%";pushState();
-        });
-        if(zip){
-            try(InputStream input=getContentResolver().openInputStream(uri)){
-                if(input==null)throw new IOException(text("Не удалось открыть ZIP","Could not open the ZIP"));
-                DiscImporter.install(getFilesDir(),input,expected,callback);
-            }
-        }else{
-            ParcelFileDescriptor descriptor=getContentResolver().openFileDescriptor(uri,"r");
-            if(descriptor==null)throw new IOException(text("Не удалось открыть ISO","Could not open the ISO"));
-            try(ParcelFileDescriptor.AutoCloseInputStream input=new ParcelFileDescriptor.AutoCloseInputStream(descriptor)){
-                DiscImporter.installIso(getFilesDir(),input.getChannel(),expected,callback);
-            }
-        }
+        },"doa3-iso-verify").start();
     }
 }

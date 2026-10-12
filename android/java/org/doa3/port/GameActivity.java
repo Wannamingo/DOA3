@@ -51,12 +51,16 @@ public class GameActivity extends SDLActivity {
     private static native void nativeDisplaySettings(int scale,int aspect);
     private static native int nativeConsumeDisplayFailure();
     private static native long nativePresentedFrames();
+    private static native boolean nativeMountIso(int fd,String root,String[] names,long[] offsets,long[] sizes);
     @Override protected String[] getLibraries(){return new String[]{"SDL3","main"};}
-    @Override protected String[] getArguments(){SharedPreferences preferences=getSharedPreferences("controls",MODE_PRIVATE);ArrayList<String> args=new ArrayList<>(Arrays.asList("--xbe",new File(getFilesDir(),"disc/default.xbe").getAbsolutePath(),"--vsync"));
+    @Override protected String[] getArguments(){SharedPreferences preferences=getSharedPreferences("controls",MODE_PRIVATE);ArrayList<String> args=new ArrayList<>(Arrays.asList("--xbe",new File(getFilesDir(),"iso-disc/default.xbe").getAbsolutePath(),"--vsync"));
         args.add("--android-display="+LauncherActivity.savedAspect(preferences));
         args.add("--android-language="+("en".equals(preferences.getString("language","ru")) ? "en" : "ru"));
         args.add("--android-resolution="+(Math.max(0,Math.min(2,preferences.getInt("resolution",0)))+1));return args.toArray(new String[0]);}
-    @Override protected void onCreate(Bundle saved){super.onCreate(saved);if(!mBrokenLibraries){pad=new TouchControlsView(this,new TouchControlsView.Listener(){
+    @Override protected void onCreate(Bundle saved){super.onCreate(saved);if(!mBrokenLibraries){
+        try(IsoSource.Opened iso=IsoSource.open(this)){IsoSource.Snapshot source=iso.snapshot;if(!nativeMountIso(iso.descriptor.getFd(),new File(getFilesDir(),"iso-disc").getAbsolutePath(),source.names,source.offsets,source.sizes))throw new java.io.IOException("Не удалось открыть ISO для игры");}
+        catch(Exception error){android.widget.Toast.makeText(this,"ISO: "+error.getMessage(),android.widget.Toast.LENGTH_LONG).show();finish();return;}
+        pad=new TouchControlsView(this,new TouchControlsView.Listener(){
         public void input(int digital,int analog,float lx,float ly,float rx,float ry){nativePad(digital,analog,lx,ly,rx,ry);}
         public void reset(){nativePadReset();}
         public void menu(){showGameMenu();}

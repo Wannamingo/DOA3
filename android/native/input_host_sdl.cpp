@@ -1,6 +1,7 @@
 #include "input_host_win32.h"
 #include "host_stack.h"
 #include "button_bindings.h"
+#include "iso_disc.h"
 #include <SDL3/SDL.h>
 #include <jni.h>
 #include <algorithm>
@@ -9,6 +10,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <string>
+#include <vector>
 namespace {
 std::array<SDL_Gamepad *,RECOMP_INPUT_PORT_COUNT> pads{};
 RecompInputGamepad touch{};
@@ -53,6 +56,17 @@ extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativePad(
 }
 extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativePadReset(JNIEnv *,jclass)
 {std::lock_guard<std::mutex> lock(touch_mutex);touch={};pending_digital=0;pending_analog=0;}
+extern "C" JNIEXPORT jboolean JNICALL Java_org_doa3_port_GameActivity_nativeMountIso(JNIEnv *env,jclass,jint fd,jstring root,jobjectArray names,jlongArray offsets,jlongArray sizes){
+    if(!root||!names||!offsets||!sizes)return false;jsize count=env->GetArrayLength(names);
+    if(count!=24||env->GetArrayLength(offsets)!=count||env->GetArrayLength(sizes)!=count)return false;
+    std::vector<jlong> off(count),size(count);env->GetLongArrayRegion(offsets,0,count,off.data());env->GetLongArrayRegion(sizes,0,count,size.data());if(env->ExceptionCheck())return false;
+    std::vector<std::string> storage;storage.reserve(count);
+    for(jsize i=0;i<count;++i){jstring value=(jstring)env->GetObjectArrayElement(names,i);if(!value)return false;const char *text=env->GetStringUTFChars(value,nullptr);if(!text){env->DeleteLocalRef(value);return false;}storage.emplace_back(text);env->ReleaseStringUTFChars(value,text);env->DeleteLocalRef(value);}
+    std::vector<const char *> pointers;std::vector<uint64_t> o,s;
+    for(jsize i=0;i<count;++i){if(off[i]<0||size[i]<0)return false;pointers.push_back(storage[i].c_str());o.push_back(uint64_t(off[i]));s.push_back(uint64_t(size[i]));}
+    const char *folder=env->GetStringUTFChars(root,nullptr);if(!folder)return false;
+    bool okay=recomp_iso_mount(fd,folder,count,pointers.data(),o.data(),s.data());env->ReleaseStringUTFChars(root,folder);return okay;
+}
 extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativeSetGamepadBindings(JNIEnv *env,jclass,jintArray values)
 {
     if(!values||env->GetArrayLength(values)!=16)return;
