@@ -9,14 +9,14 @@
 <p align="center">
   <img src="docs/images/badges/android.svg" alt="Android 8.0+">
   <img src="docs/images/badges/abi.svg" alt="ARM64">
-  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha4">
+  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha5">
   <img src="docs/images/badges/resolution.svg" alt="1× / 2× / 3×">
 </p>
 
 <p align="center"><a href="README.md">Русский</a> · <b>English</b></p>
 
 <p align="center">
-  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha4/DOA3.apk"><b>Download APK</b></a> ·
+  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha5/DOA3.apk"><b>Download APK</b></a> ·
   <a href="https://github.com/Wannamingo/DOA3/releases">All releases</a> ·
   <a href="https://github.com/Wannamingo/DOA3/issues/new/choose">Report a bug</a>
 </p>
@@ -31,7 +31,7 @@ Your own original USA game copy is required. ISO images, XBE files and game-data
 
 | Component | Value |
 | --- | --- |
-| APK | `0.1.0-alpha4` |
+| APK | `0.1.0-alpha5` |
 | Android package | `org.doa3.port` |
 | Native core | DOA3 USA, ARM64 |
 | Tested device | RG477M, Android 14 / GammaOS, Mali-G615 MC6 |
@@ -48,6 +48,7 @@ Your own original USA game copy is required. ISO images, XBE files and game-data
 - In-game layout editor: drag controls while the game is paused, then save, cancel or reset.
 - Automatic touch-control hiding when a gamepad is connected.
 - Original 4:3 proportions or 16:9 display.
+- Stretch to screen and experimental ANGLE import. [Alpha5 notes](docs/android-alpha5.md).
 - **1×, 2× and 3×** internal resolution settings.
 - A/B and X/Y swapping, and a menu for returning to the launcher.
 
@@ -92,7 +93,7 @@ The 4,191,140,992 bytes of disc resources are read from the ISO. The app stores 
 
 ## Installation
 
-1. Download **DOA3.apk** from the [alpha4 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha4) and install it.
+1. Download **DOA3.apk** from the [alpha5 release](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha5) and install it.
 2. Copy your own **Dead or Alive 3 (USA) (En,Ja).iso** to the device. The tested full Redump ISO is **7,825,162,240 bytes**. Use internal storage or exFAT for a file of this size.
 3. Open DOA3 and select **Select ISO**.
 4. Select the ISO and wait for initial verification. It reads the image without copying resources.

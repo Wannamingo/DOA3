@@ -7,8 +7,10 @@
 #include "texture_rgba.h"
 #include "content_hash.h"
 #include "gles_buffer_cache.h"
+#include "display_viewport.h"
 #include <SDL3/SDL.h>
 #include <GLES3/gl3.h>
+#include <dlfcn.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -25,6 +27,7 @@
 
 namespace {
 bool immediate;
+std::atomic<bool> driver_fallback{};
 std::atomic<float> visible_fps{};
 std::atomic<uint64_t> fps_updated_ms{};
 // UI threads publish requests; all GL resource changes run on the presenter owner.
@@ -40,31 +43,31 @@ std::string texture_key(const RecompD3dTextureDesc &d)
 { return std::to_string(d.data)+":"+std::to_string(d.width)+":"+std::to_string(d.height)+":"+std::to_string(d.format_byte)+":"+std::to_string(d.pitch)+":"+std::to_string(d.mip_levels); }
 GLuint shader(GLenum type,const std::string &source)
 {
-    GLuint result=glCreateShader(type);const char *text=source.c_str();glShaderSource(result,1,&text,nullptr);glCompileShader(result);
-    GLint okay=0;glGetShaderiv(result,GL_COMPILE_STATUS,&okay);
-    if(!okay){GLint size=0;glGetShaderiv(result,GL_INFO_LOG_LENGTH,&size);std::string log(std::max(1,size),'\0');glGetShaderInfoLog(result,size,nullptr,log.data());std::fprintf(stderr,"GLES shader: %s\n%s\n",log.c_str(),source.c_str());glDeleteShader(result);return 0;}return result;
+    GLuint result=doa3_gl::api.glCreateShader(type);const char *text=source.c_str();doa3_gl::api.glShaderSource(result,1,&text,nullptr);doa3_gl::api.glCompileShader(result);
+    GLint okay=0;doa3_gl::api.glGetShaderiv(result,GL_COMPILE_STATUS,&okay);
+    if(!okay){GLint size=0;doa3_gl::api.glGetShaderiv(result,GL_INFO_LOG_LENGTH,&size);std::string log(std::max(1,size),'\0');doa3_gl::api.glGetShaderInfoLog(result,size,nullptr,log.data());std::fprintf(stderr,"GLES shader: %s\n%s\n",log.c_str(),source.c_str());doa3_gl::api.glDeleteShader(result);return 0;}return result;
 }
 GLuint link(const std::string &vertex,const std::string &fragment)
 {
     GLuint vs=shader(GL_VERTEX_SHADER,vertex),ps=shader(GL_FRAGMENT_SHADER,fragment);
-    if(!vs || !ps){if(vs)glDeleteShader(vs);if(ps)glDeleteShader(ps);return 0;}
-    GLuint result=glCreateProgram();glAttachShader(result,vs);glAttachShader(result,ps);glLinkProgram(result);glDeleteShader(vs);glDeleteShader(ps);
-    GLint okay=0;glGetProgramiv(result,GL_LINK_STATUS,&okay);
-    if(!okay){GLint size=0;glGetProgramiv(result,GL_INFO_LOG_LENGTH,&size);std::string log(std::max(1,size),'\0');glGetProgramInfoLog(result,size,nullptr,log.data());std::fprintf(stderr,"GLES link: %s\n",log.c_str());glDeleteProgram(result);return 0;}return result;
+    if(!vs || !ps){if(vs)doa3_gl::api.glDeleteShader(vs);if(ps)doa3_gl::api.glDeleteShader(ps);return 0;}
+    GLuint result=doa3_gl::api.glCreateProgram();doa3_gl::api.glAttachShader(result,vs);doa3_gl::api.glAttachShader(result,ps);doa3_gl::api.glLinkProgram(result);doa3_gl::api.glDeleteShader(vs);doa3_gl::api.glDeleteShader(ps);
+    GLint okay=0;doa3_gl::api.glGetProgramiv(result,GL_LINK_STATUS,&okay);
+    if(!okay){GLint size=0;doa3_gl::api.glGetProgramiv(result,GL_INFO_LOG_LENGTH,&size);std::string log(std::max(1,size),'\0');doa3_gl::api.glGetProgramInfoLog(result,size,nullptr,log.data());std::fprintf(stderr,"GLES link: %s\n",log.c_str());doa3_gl::api.glDeleteProgram(result);return 0;}return result;
 }
 unsigned target_scale(unsigned preferred,unsigned width,unsigned height)
 {return std::min(preferred,4096u/std::max(width,height));}
 bool surface(Surface &s,unsigned width,unsigned height,unsigned scale=1)
 {
     if(!width || !height || width>4096 || height>4096)return false;
-    scale=target_scale(scale,width,height);s.width=width;s.height=height;s.pixel_width=width*scale;s.pixel_height=height*scale;glGenTextures(1,&s.color);glBindTexture(GL_TEXTURE_2D,s.color);
-    glTexStorage2D(GL_TEXTURE_2D,1,GL_RGBA8,s.pixel_width,s.pixel_height);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-    glGenFramebuffers(1,&s.fbo);glBindFramebuffer(GL_FRAMEBUFFER,s.fbo);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,s.color,0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)return false;
-    glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glClearColor(0,0,0,0);glClear(GL_COLOR_BUFFER_BIT);return true;
+    scale=target_scale(scale,width,height);s.width=width;s.height=height;s.pixel_width=width*scale;s.pixel_height=height*scale;doa3_gl::api.glGenTextures(1,&s.color);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,s.color);
+    doa3_gl::api.glTexStorage2D(GL_TEXTURE_2D,1,GL_RGBA8,s.pixel_width,s.pixel_height);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    doa3_gl::api.glGenFramebuffers(1,&s.fbo);doa3_gl::api.glBindFramebuffer(GL_FRAMEBUFFER,s.fbo);doa3_gl::api.glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,s.color,0);
+    if(doa3_gl::api.glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)return false;
+    doa3_gl::api.glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);doa3_gl::api.glClearColor(0,0,0,0);doa3_gl::api.glClear(GL_COLOR_BUFFER_BIT);return true;
 }
-void destroy(Surface &s){glDeleteFramebuffers(1,&s.fbo);glDeleteTextures(1,&s.color);s={};}
+void destroy(Surface &s){doa3_gl::api.glDeleteFramebuffers(1,&s.fbo);doa3_gl::api.glDeleteTextures(1,&s.color);s={};}
 GLenum compare(unsigned index){static const GLenum table[]={GL_NEVER,GL_LESS,GL_EQUAL,GL_LEQUAL,GL_GREATER,GL_NOTEQUAL,GL_GEQUAL,GL_ALWAYS};return table[index<8 ? index : 0];}
 GLenum stencil(unsigned index){static const GLenum table[]={GL_KEEP,GL_ZERO,GL_REPLACE,GL_INCR,GL_DECR,GL_INVERT,GL_INCR_WRAP,GL_DECR_WRAP};return table[index<8 ? index : 0];}
 GLenum factor(unsigned index){static const GLenum table[]={GL_ZERO,GL_ONE,GL_SRC_COLOR,GL_ONE_MINUS_SRC_COLOR,GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_DST_ALPHA,GL_ONE_MINUS_DST_ALPHA,GL_DST_COLOR,GL_ONE_MINUS_DST_COLOR,GL_SRC_ALPHA_SATURATE,GL_CONSTANT_COLOR,GL_ONE_MINUS_CONSTANT_COLOR};return table[index<13 ? index : 0];}
@@ -72,6 +75,8 @@ void color(uint32_t argb,float *rgba){rgba[0]=((argb>>16)&255)/255.f;rgba[1]=((a
 }
 struct RecompD3dPresenter {
     SDL_Window *window=nullptr;SDL_GLContext context=nullptr;std::thread::id owner;
+    void *angle_egl=nullptr,*angle_gles=nullptr;
+    bool pinned_gl_library=false;
     Surface main,feedback;Surface *current=nullptr;GLuint vao=0,vertices=0,indices=0,constants=0,blit=0,gamma=0,white=0;
     std::unordered_map<uint32_t,Surface> targets;std::unordered_map<uint32_t,Depth> depths;
     std::unordered_map<std::string,Texture> textures;std::unordered_map<std::string,Pipeline> pipelines;
@@ -86,11 +91,56 @@ struct RecompD3dPresenter {
     RecompD3dCullMode previous_cull{};bool depth_valid=false,blend_valid=false,cull_valid=false;
     unsigned render_scale=1;
     unsigned rate_frames=0;
-    double display_aspect=4.0/3.0;const char *display_profile="source (4:3)";
+    doa3_display::Aspect display_aspect=doa3_display::Aspect::Source;
+    uint64_t swap_ticks=0;
     uint64_t target_bytes=0,texture_bytes=0,frames=0,draws=0,declines=0,rate_start=0,draw_ticks=0,texture_ticks=0;bool border=false,closed=false;
     std::array<uint64_t,256> sampled{},unsupported{};
 };
 namespace {
+void close_graphics(RecompD3dPresenter &p)
+{
+    if(p.context){SDL_GL_DestroyContext(p.context);p.context=nullptr;}
+    if(p.window){SDL_DestroyWindow(p.window);p.window=nullptr;}
+    if(p.pinned_gl_library){SDL_GL_UnloadLibrary();p.pinned_gl_library=false;}
+    doa3_gl::api={};
+    if(p.angle_egl){dlclose(p.angle_egl);p.angle_egl=nullptr;}
+    if(p.angle_gles){dlclose(p.angle_gles);p.angle_gles=nullptr;}
+}
+
+bool open_graphics(RecompD3dPresenter &p,int width,int height,const char *angle)
+{
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
+    if(angle){
+        const std::string egl=std::string(angle)+"/libEGL_angle.so";
+        const std::string gles=std::string(angle)+"/libGLESv2_angle.so";
+        // Preload in dependency order, then let SDL own the Android EGL
+        // surface and lifecycle using this same library pair.
+        p.angle_gles=dlopen(gles.c_str(),RTLD_NOW|RTLD_GLOBAL);
+        if(p.angle_gles)p.angle_egl=dlopen(egl.c_str(),RTLD_NOW|RTLD_LOCAL);
+        if(!p.angle_egl){
+            std::fprintf(stderr,"ANGLE loader: %s\n",dlerror());
+            return false;
+        }
+        if(!doa3_gl::api.load([&](const char *name){return dlsym(p.angle_gles,name);}))return false;
+        SDL_SetHint(SDL_HINT_OPENGL_LIBRARY,gles.c_str());
+        SDL_SetHint(SDL_HINT_EGL_LIBRARY,egl.c_str());
+        if(!SDL_GL_LoadLibrary(egl.c_str()))return false;
+        p.pinned_gl_library=true;
+    }
+    p.window=SDL_CreateWindow("DOA3 Recompiled",width,height,SDL_WINDOW_OPENGL|SDL_WINDOW_FULLSCREEN|SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if(!p.window)return false;
+    p.context=SDL_GL_CreateContext(p.window);
+    if(!p.context)return false;
+    const auto *version=reinterpret_cast<const char *>(doa3_gl::api.glGetString(GL_VERSION));
+    const auto *renderer=reinterpret_cast<const char *>(doa3_gl::api.glGetString(GL_RENDERER));
+    if(!version||!renderer|| (angle&&!std::strstr(version,"ANGLE")))return false;
+    std::fprintf(stderr,"GPU driver=%s renderer=%s version=%s\n",angle?"imported ANGLE":"system",renderer,version);
+    return true;
+}
+
 bool target(RecompD3dPresenter &p,const RecompD3dPresenterTarget &t)
 {
     // Draws usually share the same color/depth target. Avoid rebinding and
@@ -109,28 +159,28 @@ bool target(RecompD3dPresenter &p,const RecompD3dPresenterTarget &t)
             Surface created;p.blend_valid=false;if(!surface(created,d.width,d.height,p.render_scale)){destroy(created);return false;}p.target_bytes+=bytes;found=p.targets.emplace(d.data,created).first;}
         s=&found->second;
     }
-    glBindFramebuffer(GL_FRAMEBUFFER,s->fbo);GLuint depth=0;
+    doa3_gl::api.glBindFramebuffer(GL_FRAMEBUFFER,s->fbo);GLuint depth=0;
     if(!t.no_depth){uint32_t key=t.custom_depth ? t.depth.data : 0;
         unsigned width=t.custom_depth ? t.depth.width : p.main.width,height=t.custom_depth ? t.depth.height : p.main.height;
         if(width<s->width || height<s->height || (t.custom_depth && (!key || (t.depth.format_byte!=0x2a && t.depth.format_byte!=0x2e))))return false;
         if(!width||!height||width>4096||height>4096)return false;unsigned scale=target_scale(p.render_scale,width,height),pixel_width=width*scale,pixel_height=height*scale;
         if(pixel_width<s->pixel_width||pixel_height<s->pixel_height)return false;
         auto &d=p.depths[key];
-        if(d.buffer && (d.width!=width || d.height!=height)){glDeleteRenderbuffers(1,&d.buffer);d={};}
-        if(!d.buffer){d.width=width;d.height=height;d.pixel_width=pixel_width;d.pixel_height=pixel_height;glGenRenderbuffers(1,&d.buffer);glBindRenderbuffer(GL_RENDERBUFFER,d.buffer);glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,pixel_width,pixel_height);}
+        if(d.buffer && (d.width!=width || d.height!=height)){doa3_gl::api.glDeleteRenderbuffers(1,&d.buffer);d={};}
+        if(!d.buffer){d.width=width;d.height=height;d.pixel_width=pixel_width;d.pixel_height=pixel_height;doa3_gl::api.glGenRenderbuffers(1,&d.buffer);doa3_gl::api.glBindRenderbuffer(GL_RENDERBUFFER,d.buffer);doa3_gl::api.glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8,pixel_width,pixel_height);}
         depth=d.buffer;
     }
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,depth);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)return false;
-    p.current=s;glViewport(0,0,s->pixel_width,s->pixel_height);p.previous_target=t;p.target_valid=true;return true;
+    doa3_gl::api.glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,depth);
+    if(doa3_gl::api.glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)return false;
+    p.current=s;doa3_gl::api.glViewport(0,0,s->pixel_width,s->pixel_height);p.previous_target=t;p.target_valid=true;return true;
 }
 GLuint copy_target(RecompD3dPresenter &p,Surface &source)
 {
     p.target_valid=false;
     if(p.feedback.width!=source.width || p.feedback.height!=source.height){destroy(p.feedback);p.blend_valid=false;if(!surface(p.feedback,source.width,source.height,source.pixel_width/source.width))return 0;}
-    glBindFramebuffer(GL_READ_FRAMEBUFFER,source.fbo);glBindFramebuffer(GL_DRAW_FRAMEBUFFER,p.feedback.fbo);
-    glBlitFramebuffer(0,0,source.pixel_width,source.pixel_height,0,0,p.feedback.pixel_width,p.feedback.pixel_height,GL_COLOR_BUFFER_BIT,GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER,p.current->fbo);glViewport(0,0,p.current->pixel_width,p.current->pixel_height);return p.feedback.color;
+    doa3_gl::api.glBindFramebuffer(GL_READ_FRAMEBUFFER,source.fbo);doa3_gl::api.glBindFramebuffer(GL_DRAW_FRAMEBUFFER,p.feedback.fbo);
+    doa3_gl::api.glBlitFramebuffer(0,0,source.pixel_width,source.pixel_height,0,0,p.feedback.pixel_width,p.feedback.pixel_height,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+    doa3_gl::api.glBindFramebuffer(GL_FRAMEBUFFER,p.current->fbo);doa3_gl::api.glViewport(0,0,p.current->pixel_width,p.current->pixel_height);return p.feedback.color;
 }
 GLuint texture(RecompD3dPresenter &p,const RecompD3dTextureDesc &d,const void *bytes,size_t count,const void *palette,size_t palette_count,bool backbuffer=false)
 {
@@ -140,28 +190,28 @@ GLuint texture(RecompD3dPresenter &p,const RecompD3dTextureDesc &d,const void *b
     if(!bytes || !count)return 0;
     auto key=texture_key(d);uint64_t fingerprint=hash(bytes,count);if(palette && palette_count)fingerprint=hash(palette,palette_count,fingerprint);
     auto found=p.textures.find(key);if(found!=p.textures.end() && found->second.fingerprint==fingerprint)return found->second.name;
-    if(found!=p.textures.end()){p.texture_bytes-=found->second.bytes;glDeleteTextures(1,&found->second.name);p.textures.erase(found);}
+    if(found!=p.textures.end()){p.texture_bytes-=found->second.bytes;doa3_gl::api.glDeleteTextures(1,&found->second.name);p.textures.erase(found);}
     bool bc=d.format_byte==0x0c || d.format_byte==0x0e || d.format_byte==0x0f;
     unsigned levels=bc ? std::max(1u,d.mip_levels) : 1;
     if(levels>13)return 0;
     size_t required=0;for(unsigned i=0;i<levels;++i)required+=size_t(std::max(1u,d.width>>i))*std::max(1u,d.height>>i)*4;
     // Guest RAM bounds the live data, but decoded BC textures require more space.
     if(required>256u*1024u*1024u)return 0;
-    if(p.texture_bytes+required>256u*1024u*1024u || p.textures.size()>=4096){for(auto &entry:p.textures)glDeleteTextures(1,&entry.second.name);p.textures.clear();p.texture_bytes=0;}
-    Texture created;glGenTextures(1,&created.name);glBindTexture(GL_TEXTURE_2D,created.name);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+    if(p.texture_bytes+required>256u*1024u*1024u || p.textures.size()>=4096){for(auto &entry:p.textures)doa3_gl::api.glDeleteTextures(1,&entry.second.name);p.textures.clear();p.texture_bytes=0;}
+    Texture created;doa3_gl::api.glGenTextures(1,&created.name);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,created.name);doa3_gl::api.glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     size_t offset=0;std::vector<uint8_t> rgba;
     for(unsigned i=0;i<levels;++i){auto level=d;level.width=std::max(1u,d.width>>i);level.height=std::max(1u,d.height>>i);size_t consumed=0;
-        if(offset>=count || !recomp_texture_rgba(level,(const uint8_t *)bytes+offset,count-offset,palette,palette_count,rgba,consumed)){glDeleteTextures(1,&created.name);return 0;}
-        glTexImage2D(GL_TEXTURE_2D,i,GL_RGBA8,level.width,level.height,0,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());offset+=consumed;}
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,levels-1);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,levels>1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+        if(offset>=count || !recomp_texture_rgba(level,(const uint8_t *)bytes+offset,count-offset,palette,palette_count,rgba,consumed)){doa3_gl::api.glDeleteTextures(1,&created.name);return 0;}
+        doa3_gl::api.glTexImage2D(GL_TEXTURE_2D,i,GL_RGBA8,level.width,level.height,0,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());offset+=consumed;}
+    doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,levels-1);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,levels>1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
     created.fingerprint=fingerprint;created.bytes=required;p.texture_bytes+=required;p.textures.emplace(key,created);return created.name;
 }
 bool wrap(RecompD3dPresenter &p,unsigned unit,GLuint name,unsigned u,unsigned v)
 {
     auto mode=[&](unsigned x)->GLenum{switch(x){case 2:return GL_MIRRORED_REPEAT;case 3:return GL_CLAMP_TO_EDGE;case 4:return p.border ? 0x812d : 0;default:return GL_REPEAT;}};
     GLenum a=mode(u),b=mode(v);if(!a || !b)return false;
-    glActiveTexture(GL_TEXTURE0+unit);glBindTexture(GL_TEXTURE_2D,name ? name : p.white);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,a);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,b);
-    if(u==4 || v==4){const GLfloat transparent[4]={};glTexParameterfv(GL_TEXTURE_2D,0x1004,transparent);}return true;
+    doa3_gl::api.glActiveTexture(GL_TEXTURE0+unit);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,name ? name : p.white);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,a);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,b);
+    if(u==4 || v==4){const GLfloat transparent[4]={};doa3_gl::api.glTexParameterfv(GL_TEXTURE_2D,0x1004,transparent);}return true;
 }
 Pipeline *pipeline(RecompD3dPresenter &p,const RecompD3dPresenterDrawCommand &d)
 {
@@ -169,9 +219,9 @@ Pipeline *pipeline(RecompD3dPresenter &p,const RecompD3dPresenterDrawCommand &d)
     auto found=p.pipelines.find(key);if(found!=p.pipelines.end())return &found->second;
     RecompGlShaderSource source;std::string error;if(!recomp_gl_shader_source(d,source,error)){std::fprintf(stderr,"GLES translation fvf=%x: %s\n",d.fvf,error.c_str());return nullptr;}
     Pipeline created;created.name=link(source.vertex,source.fragment);if(!created.name)return nullptr;created.attributes=std::move(source.attributes);
-    GLuint block=glGetUniformBlockIndex(created.name,"Transform");if(block==GL_INVALID_INDEX){std::fprintf(stderr,"GLES missing Transform uniform block\n");glDeleteProgram(created.name);return nullptr;}
-    GLint size=0;glGetActiveUniformBlockiv(created.name,block,GL_UNIFORM_BLOCK_DATA_SIZE,&size);if(size!=1048*4){std::fprintf(stderr,"GLES unexpected Transform size %d\n",size);glDeleteProgram(created.name);return nullptr;}glUniformBlockBinding(created.name,block,0);
-    glUseProgram(created.name);for(auto &sampler:source.samplers){GLint location=glGetUniformLocation(created.name,sampler.first.c_str());if(location>=0)glUniform1i(location,sampler.second);}
+    GLuint block=doa3_gl::api.glGetUniformBlockIndex(created.name,"Transform");if(block==GL_INVALID_INDEX){std::fprintf(stderr,"GLES missing Transform uniform block\n");doa3_gl::api.glDeleteProgram(created.name);return nullptr;}
+    GLint size=0;doa3_gl::api.glGetActiveUniformBlockiv(created.name,block,GL_UNIFORM_BLOCK_DATA_SIZE,&size);if(size!=1048*4){std::fprintf(stderr,"GLES unexpected Transform size %d\n",size);doa3_gl::api.glDeleteProgram(created.name);return nullptr;}doa3_gl::api.glUniformBlockBinding(created.name,block,0);
+    doa3_gl::api.glUseProgram(created.name);for(auto &sampler:source.samplers){GLint location=doa3_gl::api.glGetUniformLocation(created.name,sampler.first.c_str());if(location>=0)doa3_gl::api.glUniform1i(location,sampler.second);}
     std::fprintf(stderr,"GLES pipeline fvf=%x instructions=%u\n",d.fvf,d.program_count);return &p.pipelines.emplace(std::move(key),std::move(created)).first->second;
 }
 bool constants(const RecompD3dPresenterDrawCommand &d,const RecompD3dVertexLayout &layout,const Surface &surface,bool textured,float *c)
@@ -203,22 +253,22 @@ RecompD3dPresenterError draw(RecompD3dPresenter &p,const RecompD3dPresenterDrawC
     float c[1048];if(!constants(d,layout,*p.current,tex!=0,c))return rejected(4);
     if(layout.pretransformed){static std::vector<uint64_t> logged;uint64_t key=(uint64_t(d.fvf)<<32)|d.texture.data;if(logged.size()<24 && std::find(logged.begin(),logged.end(),key)==logged.end()){logged.push_back(key);std::fprintf(stderr,"GLES UI draw fvf=%x tex=%u data=%x fmt=%x has_tex=%u flags=%g factor=%g alpha=%g blend=%u,%u,%u\n",d.fvf,tex,d.texture.data,d.texture.format_byte,unsigned(d.has_texture),c[64],c[69],c[70],unsigned(d.blend.blend_enable),unsigned(d.blend.src_factor),unsigned(d.blend.dst_factor));}}
     uint64_t phase_started=p.adreno ? SDL_GetPerformanceCounter():0;
-    glUseProgram(shader->name);glBindBuffer(GL_UNIFORM_BUFFER,p.constants);
+    doa3_gl::api.glUseProgram(shader->name);doa3_gl::api.glBindBuffer(GL_UNIFORM_BUFFER,p.constants);
     if(!p.constants_valid || std::memcmp(p.previous_constants.data(),c,sizeof c)){
         // A new store lets Adreno retain constants referenced by queued draws.
         // Mali keeps its validated update path and shared VS/FS block instance.
-        if(p.adreno)glBufferData(GL_UNIFORM_BUFFER,sizeof c,c,GL_STREAM_DRAW);
-        else glBufferSubData(GL_UNIFORM_BUFFER,0,sizeof c,c);
+        if(p.adreno)doa3_gl::api.glBufferData(GL_UNIFORM_BUFFER,sizeof c,c,GL_STREAM_DRAW);
+        else doa3_gl::api.glBufferSubData(GL_UNIFORM_BUFFER,0,sizeof c,c);
         std::memcpy(p.previous_constants.data(),c,sizeof c);p.constants_valid=true;
     }
-    glBindBufferBase(GL_UNIFORM_BUFFER,0,p.constants);
+    doa3_gl::api.glBindBufferBase(GL_UNIFORM_BUFFER,0,p.constants);
     if(p.adreno){uint64_t now=SDL_GetPerformanceCounter();p.uniform_ticks+=now-phase_started;phase_started=now;}
-    glBindVertexArray(p.vao);glBindBuffer(GL_ARRAY_BUFFER,p.vertices);
+    doa3_gl::api.glBindVertexArray(p.vao);doa3_gl::api.glBindBuffer(GL_ARRAY_BUFFER,p.vertices);
     size_t bytes=size_t(d.vertex_count)*d.vertex_stride;auto &converted=p.converted_vertices;
     const void *vertices=d.vertex_bytes;if(layout.diffuse_offset!=RECOMP_D3D_FVF_ABSENT){converted.assign((const uint8_t *)vertices,(const uint8_t *)vertices+bytes);for(unsigned i=0;i<d.vertex_count;++i)std::swap(converted[size_t(i)*d.vertex_stride+layout.diffuse_offset],converted[size_t(i)*d.vertex_stride+layout.diffuse_offset+2]);vertices=converted.data();}
     GLuint vertex_buffer=p.adreno ? p.vertex_cache.get(vertices,bytes):0;
-    if(vertex_buffer)glBindBuffer(GL_ARRAY_BUFFER,vertex_buffer);
-    else {vertex_buffer=p.vertices;glBindBuffer(GL_ARRAY_BUFFER,vertex_buffer);glBufferData(GL_ARRAY_BUFFER,bytes,vertices,GL_STREAM_DRAW);}
+    if(vertex_buffer)doa3_gl::api.glBindBuffer(GL_ARRAY_BUFFER,vertex_buffer);
+    else {vertex_buffer=p.vertices;doa3_gl::api.glBindBuffer(GL_ARRAY_BUFFER,vertex_buffer);doa3_gl::api.glBufferData(GL_ARRAY_BUFFER,bytes,vertices,GL_STREAM_DRAW);}
     if(p.adreno){uint64_t now=SDL_GetPerformanceCounter();p.vertex_ticks+=now-phase_started;phase_started=now;}
     // Orphaning the VBO preserves its object name and VAO attribute bindings.
     // Presentation uses gl_VertexID and doesn't change these bindings either.
@@ -226,7 +276,7 @@ RecompD3dPresenterError draw(RecompD3dPresenter &p,const RecompD3dPresenterDrawC
     if(p.attribute_program!=shader->name || p.attribute_stride!=d.vertex_stride || p.attribute_buffer!=vertex_buffer){
     p.attribute_program=0;
     uint32_t wanted=0;for(const auto &attribute:shader->attributes){if(attribute.location>=16)return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;wanted|=1u<<attribute.location;}
-    for(unsigned i=0;i<16;++i)if((p.enabled_attributes&~wanted)&(1u<<i)){glDisableVertexAttribArray(i);p.enabled_attributes&=~(1u<<i);}
+    for(unsigned i=0;i<16;++i)if((p.enabled_attributes&~wanted)&(1u<<i)){doa3_gl::api.glDisableVertexAttribArray(i);p.enabled_attributes&=~(1u<<i);}
     for(const auto &attribute:shader->attributes){const std::string &name=attribute.name;unsigned offset=RECOMP_D3D_FVF_ABSENT,components=0;GLenum type=GL_FLOAT;GLboolean normalized=GL_FALSE;
         if(name.find("position")!=std::string::npos){offset=layout.position_offset;components=layout.pretransformed ? 4:3;}
         else if(name.find("weights")!=std::string::npos){offset=12;components=layout.blend_weight_count;}
@@ -234,32 +284,32 @@ RecompD3dPresenterError draw(RecompD3dPresenter &p,const RecompD3dPresenterDrawC
         else if(name.find("diffuse")!=std::string::npos){offset=layout.diffuse_offset;components=4;type=GL_UNSIGNED_BYTE;normalized=GL_TRUE;}
         else if(name.find("texcoord")!=std::string::npos){unsigned index=0;char last=name.back();if(last>='0' && last<='3')index=last-'0';if(index<layout.texcoord_count)offset=layout.texcoord_offset+index*8;components=2;}
         if(offset==RECOMP_D3D_FVF_ABSENT || !components || attribute.location>=16){std::fprintf(stderr,"GLES unknown attribute %s\n",name.c_str());return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;}
-        if(!(p.enabled_attributes&(1u<<attribute.location))){glEnableVertexAttribArray(attribute.location);p.enabled_attributes|=1u<<attribute.location;}
-        glVertexAttribPointer(attribute.location,components,type,normalized,d.vertex_stride,(const void *)(uintptr_t)offset);}
+        if(!(p.enabled_attributes&(1u<<attribute.location))){doa3_gl::api.glEnableVertexAttribArray(attribute.location);p.enabled_attributes|=1u<<attribute.location;}
+        doa3_gl::api.glVertexAttribPointer(attribute.location,components,type,normalized,d.vertex_stride,(const void *)(uintptr_t)offset);}
     p.enabled_attributes=wanted;p.attribute_program=shader->name;p.attribute_stride=d.vertex_stride;p.attribute_buffer=vertex_buffer;
     }
     GLuint cached_indices=p.adreno ? p.index_cache.get(d.index_bytes,size_t(d.index_count)*2):0;
-    if(cached_indices)glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,cached_indices);
-    else {glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,p.indices);glBufferData(GL_ELEMENT_ARRAY_BUFFER,size_t(d.index_count)*2,d.index_bytes,GL_STREAM_DRAW);}
+    if(cached_indices)doa3_gl::api.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,cached_indices);
+    else {doa3_gl::api.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,p.indices);doa3_gl::api.glBufferData(GL_ELEMENT_ARRAY_BUFFER,size_t(d.index_count)*2,d.index_bytes,GL_STREAM_DRAW);}
     if(p.adreno){uint64_t now=SDL_GetPerformanceCounter();p.index_ticks+=now-phase_started;phase_started=now;}
     if(!wrap(p,0,tex,d.address_u,d.address_v) || !wrap(p,1,mask,1,1))return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;
     // The GLES translation flips clip Y before rasterization. This reverses
     // winding, so invert the D3D11 front-face choice along with that flip.
     if(!p.cull_valid || p.previous_cull!=d.cull_mode){
-    if(d.cull_mode==RECOMP_D3D_CULL_NONE)glDisable(GL_CULL_FACE);else{glEnable(GL_CULL_FACE);glCullFace(GL_BACK);glFrontFace(d.cull_mode==RECOMP_D3D_CULL_CLOCKWISE ? GL_CW:GL_CCW);}
+    if(d.cull_mode==RECOMP_D3D_CULL_NONE)doa3_gl::api.glDisable(GL_CULL_FACE);else{doa3_gl::api.glEnable(GL_CULL_FACE);doa3_gl::api.glCullFace(GL_BACK);doa3_gl::api.glFrontFace(d.cull_mode==RECOMP_D3D_CULL_CLOCKWISE ? GL_CW:GL_CCW);}
     p.previous_cull=d.cull_mode;p.cull_valid=true;}
     if(!p.depth_valid || std::memcmp(&p.previous_depth,&d.depth,sizeof d.depth)){
-    if(d.depth.depth_test_enable)glEnable(GL_DEPTH_TEST);else glDisable(GL_DEPTH_TEST);glDepthFunc(compare(d.depth.depth_func));glDepthMask(d.depth.depth_write_enable);
-    if(d.depth.stencil_enable)glEnable(GL_STENCIL_TEST);else glDisable(GL_STENCIL_TEST);glStencilFunc(compare(d.depth.stencil_func),d.depth.stencil_ref,d.depth.stencil_read_mask);glStencilMask(d.depth.stencil_write_mask);glStencilOp(stencil(d.depth.stencil_fail),stencil(d.depth.stencil_zfail),stencil(d.depth.stencil_pass));
+    if(d.depth.depth_test_enable)doa3_gl::api.glEnable(GL_DEPTH_TEST);else doa3_gl::api.glDisable(GL_DEPTH_TEST);doa3_gl::api.glDepthFunc(compare(d.depth.depth_func));doa3_gl::api.glDepthMask(d.depth.depth_write_enable);
+    if(d.depth.stencil_enable)doa3_gl::api.glEnable(GL_STENCIL_TEST);else doa3_gl::api.glDisable(GL_STENCIL_TEST);doa3_gl::api.glStencilFunc(compare(d.depth.stencil_func),d.depth.stencil_ref,d.depth.stencil_read_mask);doa3_gl::api.glStencilMask(d.depth.stencil_write_mask);doa3_gl::api.glStencilOp(stencil(d.depth.stencil_fail),stencil(d.depth.stencil_zfail),stencil(d.depth.stencil_pass));
     p.previous_depth=d.depth;p.depth_valid=true;}
     if(!p.blend_valid || std::memcmp(&p.previous_blend,&d.blend,sizeof d.blend)){
-    if(d.blend.blend_enable)glEnable(GL_BLEND);else glDisable(GL_BLEND);static const GLenum equations[]={GL_FUNC_ADD,GL_MIN,GL_MAX,GL_FUNC_SUBTRACT,GL_FUNC_REVERSE_SUBTRACT};if(unsigned(d.blend.op)>=5)return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;
-    glBlendEquation(equations[d.blend.op]);glBlendFunc(factor(d.blend.src_factor),factor(d.blend.dst_factor));float rgba[4];color(d.blend.constant_color,rgba);glBlendColor(rgba[0],rgba[1],rgba[2],rgba[3]);unsigned m=d.blend.color_write_mask;glColorMask(m&1,m&2,m&4,m&8);
+    if(d.blend.blend_enable)doa3_gl::api.glEnable(GL_BLEND);else doa3_gl::api.glDisable(GL_BLEND);static const GLenum equations[]={GL_FUNC_ADD,GL_MIN,GL_MAX,GL_FUNC_SUBTRACT,GL_FUNC_REVERSE_SUBTRACT};if(unsigned(d.blend.op)>=5)return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;
+    doa3_gl::api.glBlendEquation(equations[d.blend.op]);doa3_gl::api.glBlendFunc(factor(d.blend.src_factor),factor(d.blend.dst_factor));float rgba[4];color(d.blend.constant_color,rgba);doa3_gl::api.glBlendColor(rgba[0],rgba[1],rgba[2],rgba[3]);unsigned m=d.blend.color_write_mask;doa3_gl::api.glColorMask(m&1,m&2,m&4,m&8);
     p.previous_blend=d.blend;p.blend_valid=true;}
     GLenum primitive=d.primitive_type==5 ? GL_TRIANGLES:d.primitive_type==6 ? GL_TRIANGLE_STRIP:d.primitive_type==7 ? GL_TRIANGLE_FAN:0;if(!primitive)return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;
-    glDrawElements(primitive,d.index_count,GL_UNSIGNED_SHORT,nullptr);++p.draws;
+    doa3_gl::api.glDrawElements(primitive,d.index_count,GL_UNSIGNED_SHORT,nullptr);++p.draws;
     if(p.adreno)p.issue_ticks+=SDL_GetPerformanceCounter()-phase_started;
-    p.draw_ticks+=SDL_GetPerformanceCounter()-started;return glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;
+    p.draw_ticks+=SDL_GetPerformanceCounter()-started;return doa3_gl::api.glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;
 }
 bool events(RecompD3dPresenter &p)
 {
@@ -276,11 +326,11 @@ bool resize_surfaces(RecompD3dPresenter &p,unsigned scale)
     } next;
     p.target_valid=p.depth_valid=p.blend_valid=p.cull_valid=false;
     auto copy=[&](Surface &to,const Surface &from){
-        glActiveTexture(GL_TEXTURE0);
-        if(!surface(to,from.width,from.height,scale)||glGetError()!=GL_NO_ERROR)return false;
-        glBindFramebuffer(GL_READ_FRAMEBUFFER,from.fbo);glBindFramebuffer(GL_DRAW_FRAMEBUFFER,to.fbo);
-        glBlitFramebuffer(0,0,from.pixel_width,from.pixel_height,0,0,to.pixel_width,to.pixel_height,GL_COLOR_BUFFER_BIT,GL_LINEAR);
-        return glGetError()==GL_NO_ERROR;
+        doa3_gl::api.glActiveTexture(GL_TEXTURE0);
+        if(!surface(to,from.width,from.height,scale)||doa3_gl::api.glGetError()!=GL_NO_ERROR)return false;
+        doa3_gl::api.glBindFramebuffer(GL_READ_FRAMEBUFFER,from.fbo);doa3_gl::api.glBindFramebuffer(GL_DRAW_FRAMEBUFFER,to.fbo);
+        doa3_gl::api.glBlitFramebuffer(0,0,from.pixel_width,from.pixel_height,0,0,to.pixel_width,to.pixel_height,GL_COLOR_BUFFER_BIT,GL_LINEAR);
+        return doa3_gl::api.glGetError()==GL_NO_ERROR;
     };
     try{
         next.targets.reserve(p.targets.size());
@@ -294,7 +344,7 @@ bool resize_surfaces(RecompD3dPresenter &p,unsigned scale)
     // Depth is regenerated on the next frame; guest state and textures survive.
     destroy(p.main);p.main=next.main;next.main={};p.target_bytes=0;
     for(auto &entry:next.targets){Surface &previous=p.targets.at(entry.first);destroy(previous);previous=entry.second;entry.second={};p.target_bytes+=uint64_t(previous.pixel_width)*previous.pixel_height*4;}
-    for(auto &entry:p.depths)glDeleteRenderbuffers(1,&entry.second.buffer);p.depths.clear();
+    for(auto &entry:p.depths)doa3_gl::api.glDeleteRenderbuffers(1,&entry.second.buffer);p.depths.clear();
     destroy(p.feedback);p.current=nullptr;p.render_scale=scale;return true;
 }
 void display_settings(RecompD3dPresenter &p)
@@ -302,36 +352,49 @@ void display_settings(RecompD3dPresenter &p)
     unsigned request=requested_display.exchange(0,std::memory_order_acq_rel);if(!request)return;
     unsigned scale=request&3,aspect=request>>2;
     bool okay=scale==p.render_scale||resize_surfaces(p,scale);
-    p.display_aspect=aspect==2?16.0/9.0:4.0/3.0;
-    p.display_profile=aspect==2?"16:9":aspect==1?"4:3":"source (4:3)";
-    p.rate_start=SDL_GetPerformanceCounter();p.rate_frames=0;p.draw_ticks=p.texture_ticks=0;
+    p.display_aspect=static_cast<doa3_display::Aspect>(aspect);
+    p.rate_start=SDL_GetPerformanceCounter();p.rate_frames=0;p.draw_ticks=p.texture_ticks=p.swap_ticks=0;
+    p.uniform_ticks=p.vertex_ticks=p.index_ticks=p.issue_ticks=0;
     if(!okay){
         // A failed allocation leaves the old targets intact and play can resume.
-        while(glGetError()!=GL_NO_ERROR){}
+        while(doa3_gl::api.glGetError()!=GL_NO_ERROR){}
         display_failure.store(p.render_scale|(aspect<<2),std::memory_order_release);
         std::fprintf(stderr,"Android live resolution failed requested=%u retained=%u\n",scale,p.render_scale);
-    }else std::fprintf(stderr,"Android live display resolution=%ux%u scale=%u aspect=%s frame=%llu\n",p.main.pixel_width,p.main.pixel_height,p.render_scale,p.display_profile,(unsigned long long)p.frames);
+    }else std::fprintf(stderr,"Android live display resolution=%ux%u scale=%u aspect=%s frame=%llu\n",p.main.pixel_width,p.main.pixel_height,p.render_scale,doa3_display::label(p.display_aspect),(unsigned long long)p.frames);
 }
 RecompD3dPresenterError present(RecompD3dPresenter &p)
 {
     if(!events(p))return RECOMP_D3D_PRESENTER_CLOSED;
     display_settings(p);
     int width=0,height=0;if(!SDL_GetWindowSizeInPixels(p.window,&width,&height))return RECOMP_D3D_PRESENTER_HOST_FAILURE;
-    p.target_valid=p.depth_valid=p.blend_valid=p.cull_valid=false;glBindFramebuffer(GL_FRAMEBUFFER,0);glDisable(GL_DEPTH_TEST);glDisable(GL_STENCIL_TEST);glDisable(GL_CULL_FACE);glDisable(GL_BLEND);glColorMask(1,1,1,1);glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT);
-    // Fit the complete guest image to the chosen presentation aspect. Guest
-    // camera, coordinates and render targets remain in their original format.
-    double display_width=p.display_aspect>0.0 ? p.main.height*p.display_aspect : p.main.width;
-    double scale=std::min(double(width)/display_width,double(height)/p.main.height);int w=int(display_width*scale),h=int(p.main.height*scale);glViewport((width-w)/2,(height-h)/2,w,h);
-    if(p.frames==0)std::fprintf(stderr,"Android presentation viewport=%d,%d,%d,%d screen=%dx%d aspect=%s\n",(width-w)/2,(height-h)/2,w,h,width,height,p.display_profile);
-    glUseProgram(p.blit);glBindVertexArray(p.vao);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,p.main.color);glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D,p.gamma);glDrawArrays(GL_TRIANGLES,0,3);
+    p.target_valid=p.depth_valid=p.blend_valid=p.cull_valid=false;doa3_gl::api.glBindFramebuffer(GL_FRAMEBUFFER,0);doa3_gl::api.glDisable(GL_DEPTH_TEST);doa3_gl::api.glDisable(GL_STENCIL_TEST);doa3_gl::api.glDisable(GL_CULL_FACE);doa3_gl::api.glDisable(GL_BLEND);doa3_gl::api.glColorMask(1,1,1,1);doa3_gl::api.glClearColor(0,0,0,1);doa3_gl::api.glClear(GL_COLOR_BUFFER_BIT);
+    // Stretch only affects the final blit. The game camera and render targets
+    // keep their original format.
+    const auto view=doa3_display::viewport(width,height,p.display_aspect);
+    doa3_gl::api.glViewport(view.x,view.y,view.width,view.height);
+    if(p.frames==0)std::fprintf(stderr,"Android presentation viewport=%d,%d,%d,%d screen=%dx%d aspect=%s\n",view.x,view.y,view.width,view.height,width,height,doa3_display::label(p.display_aspect));
+    doa3_gl::api.glUseProgram(p.blit);doa3_gl::api.glBindVertexArray(p.vao);doa3_gl::api.glActiveTexture(GL_TEXTURE0);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,p.main.color);doa3_gl::api.glActiveTexture(GL_TEXTURE1);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,p.gamma);doa3_gl::api.glDrawArrays(GL_TRIANGLES,0,3);
+    const uint64_t before_swap=SDL_GetPerformanceCounter();
     if(!SDL_GL_SwapWindow(p.window))return RECOMP_D3D_PRESENTER_HOST_FAILURE;++p.frames;presented_frames.store(p.frames,std::memory_order_release);
     const uint64_t now=SDL_GetPerformanceCounter();
-    if(!p.rate_start)p.rate_start=now;
-    bool report=++p.rate_frames==60;
-    if(report){double seconds=double(now-p.rate_start)/SDL_GetPerformanceFrequency();visible_fps.store(float(60/seconds),std::memory_order_relaxed);fps_updated_ms.store(SDL_GetTicks(),std::memory_order_relaxed);std::fprintf(stderr,"GLES performance fps=%.2f draw_ms=%.2f texture_ms=%.2f\n",60/seconds,p.draw_ticks*1000.0/SDL_GetPerformanceFrequency()/60,p.texture_ticks*1000.0/SDL_GetPerformanceFrequency()/60);p.rate_start=now;p.rate_frames=0;p.draw_ticks=p.texture_ticks=0;}
+    p.swap_ticks+=now-before_swap;
+    if(!p.rate_start){
+        p.rate_start=now;
+        p.draw_ticks=p.texture_ticks=p.swap_ticks=0;
+        p.uniform_ticks=p.vertex_ticks=p.index_ticks=p.issue_ticks=0;
+    }
+    else ++p.rate_frames;
+    bool report=p.rate_frames==60&&now>p.rate_start;
+    if(report){
+        const double frequency=SDL_GetPerformanceFrequency();
+        const double fps=60.0*frequency/(now-p.rate_start), ms=1000.0/(frequency*60);
+        visible_fps.store(float(fps),std::memory_order_relaxed);fps_updated_ms.store(SDL_GetTicks(),std::memory_order_relaxed);
+        std::fprintf(stderr,"GLES performance fps=%.2f draw_ms=%.2f texture_ms=%.2f swap_ms=%.2f\n",fps,p.draw_ticks*ms,p.texture_ticks*ms,p.swap_ticks*ms);
+        p.rate_start=now;p.rate_frames=0;p.draw_ticks=p.texture_ticks=p.swap_ticks=0;
+    }
     if(p.adreno && report){double factor=1000.0/SDL_GetPerformanceFrequency()/60;std::fprintf(stderr,"Adreno phases uniform_ms=%.2f vertex_ms=%.2f index_ms=%.2f issue_ms=%.2f index_hits=%llu index_uploads=%llu\n",p.uniform_ticks*factor,p.vertex_ticks*factor,p.index_ticks*factor,p.issue_ticks*factor,(unsigned long long)p.index_cache.hits,(unsigned long long)p.index_cache.uploads);p.uniform_ticks=p.vertex_ticks=p.index_ticks=p.issue_ticks=0;}
     if(p.adreno && report)std::fprintf(stderr,"Adreno vertices hits=%llu uploads=%llu\n",(unsigned long long)p.vertex_cache.hits,(unsigned long long)p.vertex_cache.uploads);
-    if(p.frames%300==0)std::fprintf(stderr,"GLES frames=%llu draws=%llu declines=%llu textures=%zu\n",(unsigned long long)p.frames,(unsigned long long)p.draws,(unsigned long long)p.declines,p.textures.size());return glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;
+    if(p.frames%300==0)std::fprintf(stderr,"GLES frames=%llu draws=%llu declines=%llu textures=%zu\n",(unsigned long long)p.frames,(unsigned long long)p.draws,(unsigned long long)p.declines,p.textures.size());return doa3_gl::api.glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;
 }
 }
 extern "C" RecompD3dPresenterError recomp_d3d_presenter_create(const RecompD3dPresenterConfig *config,RecompD3dPresenter **out)
@@ -339,26 +402,47 @@ extern "C" RecompD3dPresenterError recomp_d3d_presenter_create(const RecompD3dPr
     if(recomp_host_needs_main_stack())return recomp_host_stack([&]{return recomp_d3d_presenter_create(config,out);});
     if(!config || !out || !config->width || !config->height)return RECOMP_D3D_PRESENTER_INVALID_ARGUMENT;if(*out)return RECOMP_D3D_PRESENTER_ALREADY_INITIALIZED;
     auto p=std::make_unique<RecompD3dPresenter>();p->owner=std::this_thread::get_id();
-    const char *aspect=std::getenv("RECOMP_DISPLAY_ASPECT");
-    if(aspect && !std::strcmp(aspect,"4:3")){p->display_aspect=4.0/3.0;p->display_profile="4:3";}
-    else if(aspect && !std::strcmp(aspect,"16:9")){p->display_aspect=16.0/9.0;p->display_profile="16:9";}
+    p->display_aspect=doa3_display::parse(std::getenv("RECOMP_DISPLAY_ASPECT"));
     const char *resolution=std::getenv("RECOMP_RENDER_SCALE");p->render_scale=resolution&&!std::strcmp(resolution,"3") ? 3:resolution&&!std::strcmp(resolution,"2") ? 2:1;
     if(!SDL_Init(SDL_INIT_VIDEO))return RECOMP_D3D_PRESENTER_HOST_FAILURE;
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0);SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
-    p->window=SDL_CreateWindow("Dead or Alive 3",config->width,config->height,SDL_WINDOW_OPENGL|SDL_WINDOW_FULLSCREEN|SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    if(!p->window)return RECOMP_D3D_PRESENTER_HOST_FAILURE;p->context=SDL_GL_CreateContext(p->window);if(!p->context){SDL_DestroyWindow(p->window);return RECOMP_D3D_PRESENTER_HOST_FAILURE;}SDL_GL_SetSwapInterval(immediate ? 0:1);
-    std::fprintf(stderr,"GLES renderer=%s version=%s\n",glGetString(GL_RENDERER),glGetString(GL_VERSION));
-    p->adreno=std::strstr((const char *)glGetString(GL_RENDERER),"Adreno")!=nullptr;
+    const char *angle=std::getenv("RECOMP_ANDROID_ANGLE");
+    bool opened=false;
+    if(angle&&*angle){
+        opened=open_graphics(*p,config->width,config->height,angle);
+        if(!opened){
+            std::fprintf(stderr,"ANGLE could not open; retrying system driver: %s\n",SDL_GetError());
+            close_graphics(*p);
+            SDL_ResetHint(SDL_HINT_OPENGL_LIBRARY);
+            SDL_ResetHint(SDL_HINT_EGL_LIBRARY);
+            SDL_QuitSubSystem(SDL_INIT_VIDEO);
+            if(!SDL_Init(SDL_INIT_VIDEO))return RECOMP_D3D_PRESENTER_HOST_FAILURE;
+            driver_fallback.store(true,std::memory_order_release);
+        }
+    }
+    if(!opened&&!open_graphics(*p,config->width,config->height,nullptr)){
+        std::fprintf(stderr,"System GLES could not open: %s\n",SDL_GetError());
+        close_graphics(*p);
+        return RECOMP_D3D_PRESENTER_HOST_FAILURE;
+    }
+    // The guest already paces itself. Waiting on host VSync too makes a
+    // barely missed refresh block until the next, at 30 FPS on 60 Hz panels.
+    const int wanted_swap_interval=immediate ? 0:1;
+    if(!SDL_GL_SetSwapInterval(wanted_swap_interval))
+        std::fprintf(stderr,"GLES swap interval %d rejected: %s\n",wanted_swap_interval,SDL_GetError());
+    int applied_swap_interval=-1;SDL_GL_GetSwapInterval(&applied_swap_interval);
+    std::fprintf(stderr,"GLES swap interval requested=%d applied=%d\n",wanted_swap_interval,applied_swap_interval);
+    const auto *renderer=reinterpret_cast<const char *>(doa3_gl::api.glGetString(GL_RENDERER));
+    p->adreno=!opened&&std::strstr(renderer,"Adreno")&&!std::strstr(renderer,"ANGLE");
     std::fprintf(stderr,"Android GPU profile=%s\n",p->adreno ? "Adreno immutable geometry/orphaned uniforms":"compatible legacy streaming");
-    std::fprintf(stderr,"Android display aspect=%s guest=%ux%u\n",p->display_profile,config->width,config->height);
-    GLint extensions=0;glGetIntegerv(GL_NUM_EXTENSIONS,&extensions);for(GLint i=0;i<extensions;++i){const char *e=(const char *)glGetStringi(GL_EXTENSIONS,i);if(!std::strcmp(e,"GL_EXT_texture_border_clamp") || !std::strcmp(e,"GL_OES_texture_border_clamp"))p->border=true;}
-    glGenVertexArrays(1,&p->vao);glBindVertexArray(p->vao);glGenBuffers(1,&p->vertices);glGenBuffers(1,&p->indices);glGenBuffers(1,&p->constants);glBindBuffer(GL_UNIFORM_BUFFER,p->constants);glBufferData(GL_UNIFORM_BUFFER,1048*4,nullptr,GL_STREAM_DRAW);
+    std::fprintf(stderr,"Android display aspect=%s guest=%ux%u\n",doa3_display::label(p->display_aspect),config->width,config->height);
+    GLint extensions=0;doa3_gl::api.glGetIntegerv(GL_NUM_EXTENSIONS,&extensions);for(GLint i=0;i<extensions;++i){const char *e=(const char *)doa3_gl::api.glGetStringi(GL_EXTENSIONS,i);if(!std::strcmp(e,"GL_EXT_texture_border_clamp") || !std::strcmp(e,"GL_OES_texture_border_clamp"))p->border=true;}
+    doa3_gl::api.glGenVertexArrays(1,&p->vao);doa3_gl::api.glBindVertexArray(p->vao);doa3_gl::api.glGenBuffers(1,&p->vertices);doa3_gl::api.glGenBuffers(1,&p->indices);doa3_gl::api.glGenBuffers(1,&p->constants);doa3_gl::api.glBindBuffer(GL_UNIFORM_BUFFER,p->constants);doa3_gl::api.glBufferData(GL_UNIFORM_BUFFER,1048*4,nullptr,GL_STREAM_DRAW);
     const char *vs="#version 300 es\nconst vec2 points[3]=vec2[3](vec2(-1,-1),vec2(3,-1),vec2(-1,3));out vec2 uv;void main(){vec2 p=points[gl_VertexID];gl_Position=vec4(p,0,1);uv=vec2((p.x+1.)*.5,(1.-p.y)*.5);}";
     const char *ps="#version 300 es\nprecision highp float;uniform sampler2D frame;uniform sampler2D ramp;in vec2 uv;out vec4 result;void main(){vec4 c=texture(frame,uv);result=vec4(texture(ramp,vec2((floor(clamp(c.r,0.,1.)*255.+.5)+.5)/256.,.5)).r,texture(ramp,vec2((floor(clamp(c.g,0.,1.)*255.+.5)+.5)/256.,.5)).g,texture(ramp,vec2((floor(clamp(c.b,0.,1.)*255.+.5)+.5)/256.,.5)).b,c.a);}";
-    p->blit=link(vs,ps);glUseProgram(p->blit);glUniform1i(glGetUniformLocation(p->blit,"frame"),0);glUniform1i(glGetUniformLocation(p->blit,"ramp"),1);
-    glGenTextures(1,&p->gamma);glBindTexture(GL_TEXTURE_2D,p->gamma);uint8_t ramp[256*4];for(unsigned i=0;i<256;++i){ramp[i*4]=ramp[i*4+1]=ramp[i*4+2]=i;ramp[i*4+3]=255;}glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,256,1,0,GL_RGBA,GL_UNSIGNED_BYTE,ramp);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glGenTextures(1,&p->white);glBindTexture(GL_TEXTURE_2D,p->white);uint32_t white=0xffffffff;glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,&white);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-    if(!p->blit || !surface(p->main,config->width,config->height,p->render_scale) || glGetError()!=GL_NO_ERROR){*out=p.release();recomp_d3d_presenter_destroy(out);return RECOMP_D3D_PRESENTER_HOST_FAILURE;}
+    p->blit=link(vs,ps);doa3_gl::api.glUseProgram(p->blit);doa3_gl::api.glUniform1i(doa3_gl::api.glGetUniformLocation(p->blit,"frame"),0);doa3_gl::api.glUniform1i(doa3_gl::api.glGetUniformLocation(p->blit,"ramp"),1);
+    doa3_gl::api.glGenTextures(1,&p->gamma);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,p->gamma);uint8_t ramp[256*4];for(unsigned i=0;i<256;++i){ramp[i*4]=ramp[i*4+1]=ramp[i*4+2]=i;ramp[i*4+3]=255;}doa3_gl::api.glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,256,1,0,GL_RGBA,GL_UNSIGNED_BYTE,ramp);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    doa3_gl::api.glGenTextures(1,&p->white);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,p->white);uint32_t white=0xffffffff;doa3_gl::api.glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,&white);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);doa3_gl::api.glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    if(!p->blit || !surface(p->main,config->width,config->height,p->render_scale) || doa3_gl::api.glGetError()!=GL_NO_ERROR){*out=p.release();recomp_d3d_presenter_destroy(out);return RECOMP_D3D_PRESENTER_HOST_FAILURE;}
     std::fprintf(stderr,"Android internal resolution=%ux%u scale=%u guest=%ux%u\n",p->main.pixel_width,p->main.pixel_height,p->render_scale,p->main.width,p->main.height);
     *out=p.release();return RECOMP_D3D_PRESENTER_OK;
 }
@@ -367,9 +451,9 @@ extern "C" RecompD3dPresenterError recomp_d3d_presenter_submit(RecompD3dPresente
     if(recomp_host_needs_main_stack())return recomp_host_stack([&]{return recomp_d3d_presenter_submit(p,cmd);});
     if(!p)return RECOMP_D3D_PRESENTER_NOT_INITIALIZED;if(p->owner!=std::this_thread::get_id())return RECOMP_D3D_PRESENTER_WRONG_THREAD;if(!cmd)return RECOMP_D3D_PRESENTER_INVALID_ARGUMENT;
     try{switch(cmd->type){case RECOMP_D3D_PRESENTER_COMMAND_DRAW:{auto result=draw(*p,cmd->data.draw);if(result!=RECOMP_D3D_PRESENTER_OK)++p->declines;return result;}
-        case RECOMP_D3D_PRESENTER_COMMAND_CLEAR:{const auto &c=cmd->data.clear;p->depth_valid=p->blend_valid=false;if(!target(*p,c.target))return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;GLbitfield bits=0;if(c.clear_color){float rgba[4];color(c.color,rgba);glColorMask(1,1,1,1);glClearColor(rgba[0],rgba[1],rgba[2],rgba[3]);bits|=GL_COLOR_BUFFER_BIT;}if(c.clear_depth){glDepthMask(1);glClearDepthf(c.z);bits|=GL_DEPTH_BUFFER_BIT;}if(c.clear_stencil){glStencilMask(255);glClearStencil(c.stencil);bits|=GL_STENCIL_BUFFER_BIT;}glClear(bits);return glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;}
+        case RECOMP_D3D_PRESENTER_COMMAND_CLEAR:{const auto &c=cmd->data.clear;p->depth_valid=p->blend_valid=false;if(!target(*p,c.target))return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;GLbitfield bits=0;if(c.clear_color){float rgba[4];color(c.color,rgba);doa3_gl::api.glColorMask(1,1,1,1);doa3_gl::api.glClearColor(rgba[0],rgba[1],rgba[2],rgba[3]);bits|=GL_COLOR_BUFFER_BIT;}if(c.clear_depth){doa3_gl::api.glDepthMask(1);doa3_gl::api.glClearDepthf(c.z);bits|=GL_DEPTH_BUFFER_BIT;}if(c.clear_stencil){doa3_gl::api.glStencilMask(255);doa3_gl::api.glClearStencil(c.stencil);bits|=GL_STENCIL_BUFFER_BIT;}doa3_gl::api.glClear(bits);return doa3_gl::api.glGetError()==GL_NO_ERROR ? RECOMP_D3D_PRESENTER_OK:RECOMP_D3D_PRESENTER_HOST_FAILURE;}
         case RECOMP_D3D_PRESENTER_COMMAND_PRESENT:return present(*p);
-        case RECOMP_D3D_PRESENTER_COMMAND_GAMMA:{uint8_t rgba[256*4];for(unsigned i=0;i<256;++i){for(unsigned c=0;c<3;++c)rgba[i*4+c]=cmd->data.gamma[c][i];rgba[i*4+3]=255;}glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D,p->gamma);glTexSubImage2D(GL_TEXTURE_2D,0,0,0,256,1,GL_RGBA,GL_UNSIGNED_BYTE,rgba);return RECOMP_D3D_PRESENTER_OK;}}
+        case RECOMP_D3D_PRESENTER_COMMAND_GAMMA:{uint8_t rgba[256*4];for(unsigned i=0;i<256;++i){for(unsigned c=0;c<3;++c)rgba[i*4+c]=cmd->data.gamma[c][i];rgba[i*4+3]=255;}doa3_gl::api.glActiveTexture(GL_TEXTURE1);doa3_gl::api.glBindTexture(GL_TEXTURE_2D,p->gamma);doa3_gl::api.glTexSubImage2D(GL_TEXTURE_2D,0,0,0,256,1,GL_RGBA,GL_UNSIGNED_BYTE,rgba);return RECOMP_D3D_PRESENTER_OK;}}
     }catch(const std::bad_alloc &){return RECOMP_D3D_PRESENTER_OUT_OF_MEMORY;}catch(const std::exception &e){std::fprintf(stderr,"GLES presenter: %s\n",e.what());return RECOMP_D3D_PRESENTER_HOST_FAILURE;}return RECOMP_D3D_PRESENTER_UNSUPPORTED_COMMAND;
 }
 extern "C" RecompD3dPresenterError recomp_d3d_presenter_release_memory(RecompD3dPresenter *p,uint32_t base,uint32_t size)
@@ -378,19 +462,20 @@ extern "C" RecompD3dPresenterError recomp_d3d_presenter_release_memory(RecompD3d
     if(!p)return RECOMP_D3D_PRESENTER_NOT_INITIALIZED;if(p->owner!=std::this_thread::get_id())return RECOMP_D3D_PRESENTER_WRONG_THREAD;
     base&=0x7fffffff;auto overlaps=[&](uint32_t address,size_t bytes){address&=0x7fffffff;return uint64_t(address)<uint64_t(base)+size && uint64_t(base)<uint64_t(address)+bytes;};
     for(auto i=p->targets.begin();i!=p->targets.end();){size_t bytes=size_t(i->second.width)*i->second.height*4;if(overlaps(i->first,bytes)){p->target_bytes-=size_t(i->second.pixel_width)*i->second.pixel_height*4;destroy(i->second);i=p->targets.erase(i);}else ++i;}
-    for(auto i=p->depths.begin();i!=p->depths.end();){if(i->first && overlaps(i->first,size_t(i->second.width)*i->second.height*4)){glDeleteRenderbuffers(1,&i->second.buffer);i=p->depths.erase(i);}else ++i;}
-    for(auto i=p->textures.begin();i!=p->textures.end();){uint32_t address=(uint32_t)std::stoul(i->first);if(overlaps(address,i->second.bytes)){p->texture_bytes-=i->second.bytes;glDeleteTextures(1,&i->second.name);i=p->textures.erase(i);}else ++i;}p->current=nullptr;p->target_valid=false;return RECOMP_D3D_PRESENTER_OK;
+    for(auto i=p->depths.begin();i!=p->depths.end();){if(i->first && overlaps(i->first,size_t(i->second.width)*i->second.height*4)){doa3_gl::api.glDeleteRenderbuffers(1,&i->second.buffer);i=p->depths.erase(i);}else ++i;}
+    for(auto i=p->textures.begin();i!=p->textures.end();){uint32_t address=(uint32_t)std::stoul(i->first);if(overlaps(address,i->second.bytes)){p->texture_bytes-=i->second.bytes;doa3_gl::api.glDeleteTextures(1,&i->second.name);i=p->textures.erase(i);}else ++i;}p->current=nullptr;p->target_valid=false;return RECOMP_D3D_PRESENTER_OK;
 }
 extern "C" RecompD3dPresenterError recomp_d3d_presenter_destroy(RecompD3dPresenter **out)
 {
     if(recomp_host_needs_main_stack())return recomp_host_stack([&]{return recomp_d3d_presenter_destroy(out);});
     if(!out)return RECOMP_D3D_PRESENTER_INVALID_ARGUMENT;if(!*out)return RECOMP_D3D_PRESENTER_NOT_INITIALIZED;auto *p=*out;if(p->owner!=std::this_thread::get_id())return RECOMP_D3D_PRESENTER_WRONG_THREAD;
-    destroy(p->main);destroy(p->feedback);for(auto &t:p->targets)destroy(t.second);for(auto &t:p->textures)glDeleteTextures(1,&t.second.name);for(auto &d:p->depths)glDeleteRenderbuffers(1,&d.second.buffer);for(auto &s:p->pipelines)glDeleteProgram(s.second.name);
-    p->index_cache.clear();p->vertex_cache.clear();glDeleteProgram(p->blit);glDeleteBuffers(1,&p->vertices);glDeleteBuffers(1,&p->indices);glDeleteBuffers(1,&p->constants);glDeleteTextures(1,&p->gamma);glDeleteTextures(1,&p->white);glDeleteVertexArrays(1,&p->vao);SDL_GL_DestroyContext(p->context);SDL_DestroyWindow(p->window);delete p;*out=nullptr;return RECOMP_D3D_PRESENTER_OK;
+    destroy(p->main);destroy(p->feedback);for(auto &t:p->targets)destroy(t.second);for(auto &t:p->textures)doa3_gl::api.glDeleteTextures(1,&t.second.name);for(auto &d:p->depths)doa3_gl::api.glDeleteRenderbuffers(1,&d.second.buffer);for(auto &s:p->pipelines)doa3_gl::api.glDeleteProgram(s.second.name);
+    p->index_cache.clear();p->vertex_cache.clear();doa3_gl::api.glDeleteProgram(p->blit);doa3_gl::api.glDeleteBuffers(1,&p->vertices);doa3_gl::api.glDeleteBuffers(1,&p->indices);doa3_gl::api.glDeleteBuffers(1,&p->constants);doa3_gl::api.glDeleteTextures(1,&p->gamma);doa3_gl::api.glDeleteTextures(1,&p->white);doa3_gl::api.glDeleteVertexArrays(1,&p->vao);close_graphics(*p);delete p;*out=nullptr;return RECOMP_D3D_PRESENTER_OK;
 }
 extern "C" void recomp_d3d_presenter_set_immediate_present(bool enabled){immediate=enabled;}
 extern "C" float recomp_android_presenter_fps(void){return SDL_GetTicks()-fps_updated_ms.load(std::memory_order_relaxed)>2500 ? 0.f:visible_fps.load(std::memory_order_relaxed);}
-extern "C" void recomp_android_display_settings(unsigned scale,unsigned aspect){if(scale>=1&&scale<=3&&aspect<=2)requested_display.store(scale|(aspect<<2),std::memory_order_release);}
+extern "C" void recomp_android_display_settings(unsigned scale,unsigned aspect){if(scale>=1&&scale<=3&&aspect<=3)requested_display.store(scale|(aspect<<2),std::memory_order_release);}
+extern "C" bool recomp_android_consume_driver_fallback(void){return driver_fallback.exchange(false,std::memory_order_acq_rel);}
 extern "C" unsigned recomp_android_consume_display_failure(void){return display_failure.exchange(0,std::memory_order_acq_rel);}
 extern "C" uint64_t recomp_android_presented_frames(void){return presented_frames.load(std::memory_order_acquire);}
 extern "C" void recomp_d3d_presenter_report_draw_textures(void){std::fprintf(stderr,"Android GLES texture counters are reported per presenter frame batch\n");}

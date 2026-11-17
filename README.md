@@ -9,14 +9,14 @@
 <p align="center">
   <img src="docs/images/badges/android.svg" alt="Android 8.0+">
   <img src="docs/images/badges/abi.svg" alt="ARM64">
-  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha4">
+  <img src="docs/images/badges/version.svg" alt="APK 0.1.0 alpha5">
   <img src="docs/images/badges/resolution.svg" alt="1× / 2× / 3×">
 </p>
 
 <p align="center"><b>Русский</b> · <a href="README.en.md">English</a></p>
 
 <p align="center">
-  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha4/DOA3.apk"><b>Скачать APK</b></a> ·
+  <a href="https://github.com/Wannamingo/DOA3/releases/download/v0.1.0-alpha5/DOA3.apk"><b>Скачать APK</b></a> ·
   <a href="https://github.com/Wannamingo/DOA3/releases">Все релизы</a> ·
   <a href="https://github.com/Wannamingo/DOA3/issues/new/choose">Сообщить об ошибке</a>
 </p>
@@ -31,7 +31,7 @@
 
 | Компонент | Значение |
 | --- | --- |
-| APK | `0.1.0-alpha4` |
+| APK | `0.1.0-alpha5` |
 | Пакет Android | `org.doa3.port` |
 | Нативное ядро | DOA3 USA, ARM64 |
 | Проверенное устройство | RG477M, Android 14 / GammaOS, Mali-G615 MC6 |
@@ -48,6 +48,7 @@
 - Редактор расположения прямо в игре: перетаскивание элементов, пауза, сохранение, отмена и сброс.
 - Автоматическое скрытие экранных кнопок при подключённом геймпаде.
 - Исходный формат 4:3 или отображение 16:9.
+- Растяжение на весь экран и экспериментальный импорт ANGLE. [Подробнее об alpha5](docs/android-alpha5.md).
 - Режимы разрешения **1×, 2× и 3×**.
 - Перестановка A/B и X/Y, отдельное меню возврата в лаунчер.
 
@@ -92,7 +93,7 @@
 
 ## Установка
 
-1. Скачайте **DOA3.apk** из [релиза alpha4](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha4) и установите его.
+1. Скачайте **DOA3.apk** из [релиза alpha5](https://github.com/Wannamingo/DOA3/releases/tag/v0.1.0-alpha5) и установите его.
 2. Скопируйте собственный **Dead or Alive 3 (USA) (En,Ja).iso** на устройство. Проверенный полный Redump ISO имеет размер **7 825 162 240 байт**. Для такого файла используйте внутреннюю память или exFAT.
 3. Откройте DOA3 и нажмите **«Выбрать ISO»**.
 4. Выберите ISO и дождитесь первой проверки файлов. Проверка читает образ, но не копирует ресурсы.

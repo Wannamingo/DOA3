@@ -1,5 +1,7 @@
 package org.doa3.port;
 import android.os.Bundle;
+import android.os.Build;
+import android.util.Log;
 import android.view.*;
 import android.graphics.Color;
 import android.content.Context;
@@ -9,6 +11,7 @@ import android.hardware.input.InputManager;
 import java.io.File;
 import java.util.*;
 import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLSurface;
 
 public class GameActivity extends SDLActivity {
     private TouchControlsView pad;
@@ -33,6 +36,9 @@ public class GameActivity extends SDLActivity {
     private final Runnable fpsUpdate=new Runnable(){public void run(){
         if(fpsView==null)return;float fps=nativeGetFps();
         fpsView.setText(fps>0 ? String.format(Locale.US,"%.0f FPS",fps) : "-- FPS");
+        if(nativeConsumeDriverFallback())android.widget.Toast.makeText(GameActivity.this,
+            english?"ANGLE could not start. Using the system GPU driver.":"ANGLE не запустился. Используется системный драйвер GPU.",
+            android.widget.Toast.LENGTH_LONG).show();
         int failed=nativeConsumeDisplayFailure();
         if(failed!=0){resolution=(failed&3)-1;android.widget.Toast.makeText(GameActivity.this,english?"Could not change resolution. Previous resolution retained.":"Не удалось изменить разрешение. Сохранено прежнее разрешение.",android.widget.Toast.LENGTH_LONG).show();}
         fpsHandler.postDelayed(this,500);
@@ -51,9 +57,12 @@ public class GameActivity extends SDLActivity {
     private static native void nativeDisplaySettings(int scale,int aspect);
     private static native int nativeConsumeDisplayFailure();
     private static native long nativePresentedFrames();
+    private static native boolean nativeConsumeDriverFallback();
     private static native boolean nativeMountIso(int fd,String root,String[] names,long[] offsets,long[] sizes);
     @Override protected String[] getLibraries(){return new String[]{"SDL3","main"};}
-    @Override protected String[] getArguments(){SharedPreferences preferences=getSharedPreferences("controls",MODE_PRIVATE);ArrayList<String> args=new ArrayList<>(Arrays.asList("--xbe",new File(getFilesDir(),"iso-disc/default.xbe").getAbsolutePath(),"--vsync"));
+    @Override protected String[] getArguments(){SharedPreferences preferences=getSharedPreferences("controls",MODE_PRIVATE);ArrayList<String> args=new ArrayList<>(Arrays.asList("--xbe",new File(getFilesDir(),"iso-disc/default.xbe").getAbsolutePath()));
+        File customDriver=GpuDriverActivity.activeDriver(this);
+        if(customDriver!=null)args.add("--android-angle="+customDriver.getAbsolutePath());
         args.add("--android-display="+LauncherActivity.savedAspect(preferences));
         args.add("--android-language="+("en".equals(preferences.getString("language","ru")) ? "en" : "ru"));
         args.add("--android-resolution="+(Math.max(0,Math.min(2,preferences.getInt("resolution",0)))+1));return args.toArray(new String[0]);}
@@ -77,7 +86,22 @@ public class GameActivity extends SDLActivity {
         android.widget.RelativeLayout.LayoutParams fpsParams=new android.widget.RelativeLayout.LayoutParams(-2,-2);fpsParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);fpsParams.addRule(android.widget.RelativeLayout.CENTER_HORIZONTAL);fpsParams.setMargins(margin,margin,margin,margin);mLayout.addView(fpsView,fpsParams);fpsHandler.post(fpsUpdate);}}
     @Override protected void onResume(){super.onResume();activityResumed=true;refreshControls();if(editAfterSettings&&pad!=null){editAfterSettings=false;editorStartFrame=nativePresentedFrames();fpsHandler.postDelayed(editorAfterSettings,16);}if(!mBrokenLibraries){fpsHandler.removeCallbacks(menuUpdate);fpsHandler.post(menuUpdate);}}
     @Override protected void onDestroy(){fpsHandler.removeCallbacks(menuUpdate);fpsHandler.removeCallbacks(fpsUpdate);fpsView=null;if(inputManager!=null)inputManager.unregisterInputDeviceListener(deviceListener);boolean terminate=isFinishing();super.onDestroy();if(terminate)android.os.Process.killProcess(android.os.Process.myPid());}
-    private void request60Hz(){Display display=getWindowManager().getDefaultDisplay();Display.Mode current=display.getMode(),best=null;float distance=2f;for(Display.Mode mode:display.getSupportedModes()){float delta=Math.abs(mode.getRefreshRate()-60f);if(mode.getPhysicalWidth()==current.getPhysicalWidth()&&mode.getPhysicalHeight()==current.getPhysicalHeight()&&delta<distance){best=mode;distance=delta;}}WindowManager.LayoutParams params=getWindow().getAttributes();params.preferredRefreshRate=60f;if(best!=null)params.preferredDisplayModeId=best.getModeId();getWindow().setAttributes(params);}
+    @Override protected SDLSurface createSDLSurface(Context context){
+        return new SDLSurface(context){
+            @Override public void surfaceChanged(SurfaceHolder holder,int format,int width,int height){
+                if(Build.VERSION.SDK_INT>=30&&holder.getSurface().isValid()){
+                    try{holder.getSurface().setFrameRate(60f,Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);}
+                    catch(IllegalArgumentException|IllegalStateException unavailable){Log.w("DOA3","60 Hz surface request unavailable",unavailable);}
+                }
+                super.surfaceChanged(holder,format,width,height);
+            }
+        };
+    }
+    private void request60Hz(){
+        WindowManager.LayoutParams params=getWindow().getAttributes();
+        params.preferredRefreshRate=60f;
+        getWindow().setAttributes(params);
+    }
     private void refreshControls(){if(pad==null)return;boolean connected=false;for(int id:InputDevice.getDeviceIds()){InputDevice device=InputDevice.getDevice(id);if(device!=null&&(((device.getSources()&InputDevice.SOURCE_GAMEPAD)==InputDevice.SOURCE_GAMEPAD)||((device.getSources()&InputDevice.SOURCE_JOYSTICK)==InputDevice.SOURCE_JOYSTICK))){connected=true;break;}}boolean visible=touchMode==1||(touchMode==0&&!connected);pad.setControlsVisible(visible);}
     @Override protected void onPause(){activityResumed=false;fpsHandler.removeCallbacks(menuUpdate);fpsHandler.removeCallbacks(editorAfterSettings);if(pad!=null){pad.cancelEditing();pad.clear();}super.onPause();}
     @Override public boolean dispatchKeyEvent(KeyEvent event){
@@ -123,7 +147,7 @@ public class GameActivity extends SDLActivity {
         super.onActivityResult(request,result,data);if(request!=SETTINGS_REQUEST)return;settingsOpen=false;
         if(result==RESULT_OK&&data!=null&&pad!=null){
             resolution=Math.max(0,Math.min(2,data.getIntExtra("resolution",resolution)));
-            String aspect=data.getStringExtra("aspect");nativeDisplaySettings(resolution+1,"16:9".equals(aspect)?2:"4:3".equals(aspect)?1:0);
+            nativeDisplaySettings(resolution+1,BeachSettings.aspectIndex(data.getStringExtra("aspect")));
             english="en".equals(data.getStringExtra("language"));pad.setLanguage(english);
             touchMode=Math.max(0,Math.min(2,data.getIntExtra("touchControls",touchMode)));
             gamepadBindings=ControlBindings.sanitize(data.getIntArrayExtra("padBindings"));nativeSetGamepadBindings(gamepadBindings);

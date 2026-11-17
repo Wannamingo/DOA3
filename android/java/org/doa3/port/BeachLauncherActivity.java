@@ -79,7 +79,7 @@ public final class BeachLauncherActivity extends Activity {
     private void showFallback(){
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
         int padding=(int)(24*getResources().getDisplayMetrics().density);layout.setPadding(padding,padding,padding,padding);
-        TextView title=new TextView(this);title.setText("Dead or Alive 3");title.setTextSize(24);layout.addView(title);
+        TextView title=new TextView(this);title.setText("DOA3 Recompiled");title.setTextSize(24);layout.addView(title);
         TextView explanation=new TextView(this);explanation.setText(text("Обновите Android System WebView для нового оформления. Все настройки доступны в стандартном меню.","Update Android System WebView for the new interface. All settings are available in the standard menu."));layout.addView(explanation);
         Button original=new Button(this);original.setText(text("Открыть стандартное меню","Open standard menu"));
         original.setOnClickListener(v->startActivity(new Intent(this,LauncherActivity.class)));layout.addView(original);setContentView(layout);
@@ -122,6 +122,9 @@ public final class BeachLauncherActivity extends Activity {
         }
         @JavascriptInterface public void openControls(){runOnUiThread(()->{
             if(!importing)startActivity(new Intent(BeachLauncherActivity.this,ControlMappingActivity.class));
+        });}
+        @JavascriptInterface public void openGpuDriver(){runOnUiThread(()->{
+            if(!importing)startActivity(new Intent(BeachLauncherActivity.this,GpuDriverActivity.class));
         });}
         @JavascriptInterface public void play(){runOnUiThread(()->{
             if(importing||!ready)return;

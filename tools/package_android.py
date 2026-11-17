@@ -52,7 +52,7 @@ with zipfile.ZipFile(unsigned,'a') as archive:
  archive.write(sdl/'prefab/modules/SDL3-shared/libs/android.arm64-v8a/libSDL3.so','lib/arm64-v8a/libSDL3.so',compress_type=zipfile.ZIP_STORED)
 aligned=build/'aligned.apk';run([sdk/'zipalign.exe','-P','16','-f','4',unsigned,aligned])
 key=build/'local-debug.jks'
-if not key.exists():run([jdk/'keytool.exe','-genkeypair','-keystore',key,'-storepass','android','-keypass','android','-alias','androiddebugkey','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Local DOA3 Android Development'])
+if not key.is_file():raise RuntimeError('Place the existing DOA3 Android signing key at private/apk/local-debug.jks before packaging an update.')
 version=ET.parse(root/'android/AndroidManifest.xml').getroot().get('{http://schemas.android.com/apk/res/android}versionName')
 assert re.fullmatch(r'[0-9.]+-alpha[0-9]+',version),version
 apk=out/('DOA3-RG477M-arm64-'+version.split('-')[-1]+'.apk')
@@ -61,6 +61,7 @@ verification=run([jdk/'java.exe','-jar',sdk/'lib/apksigner.jar','verify','--verb
 run([sdk/'zipalign.exe','-c','-P','16','4',apk])
 badging=run([sdk/'aapt2.exe','dump','badging',apk])
 assert "package: name='org.doa3.port'" in badging and "launchable-activity: name='org.doa3.port.BeachLauncherActivity'" in badging
+assert "application-label:'DOA3 Recompiled'" in badging
 with zipfile.ZipFile(apk) as archive:
  assert archive.testzip() is None
  assert archive.read('assets/launcher/background.jpg')==(root/'android/assets/launcher/background.jpg').read_bytes()

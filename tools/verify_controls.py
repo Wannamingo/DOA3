@@ -11,8 +11,8 @@ android=tools/'sdk/android-35/android.jar'
 build=root/'private/control-tests';build.mkdir(parents=True,exist_ok=True)
 env=dict(os.environ,TMP=str(build),TEMP=str(build))
 java=root/'android/java/org/doa3/port';tests=root/'android/tests/org/doa3/port'
-sources=[java/(name+'.java') for name in ['ControlBindings','ControlPreferences','TouchControlsModel','TouchLayoutStore']]
-sources += [tests/(name+'.java') for name in ['TouchControlsModelTest','ControlPreferencesTest']]
+sources=[java/(name+'.java') for name in ['ControlBindings','ControlPreferences','TouchControlsModel','TouchLayoutStore','DriverPackage']]
+sources += [tests/(name+'.java') for name in ['TouchControlsModelTest','ControlPreferencesTest','DriverPackageTest']]
 subprocess.run([str(jdk/'javac.exe'),'-encoding','UTF-8','-cp',str(android),'-d',str(build),*map(str,sources)],env=env,check=True)
-for test in ['TouchControlsModelTest','ControlPreferencesTest']:
-    subprocess.run([str(jdk/'java.exe'),'-cp',str(build)+os.pathsep+str(android),'org.doa3.port.'+test],env=env,check=True)
+for test in ['TouchControlsModelTest','ControlPreferencesTest','DriverPackageTest']:
+    subprocess.run([str(jdk/'java.exe'),'-Djava.io.tmpdir='+str(build),'-cp',str(build)+os.pathsep+str(android),'org.doa3.port.'+test],env=env,check=True)

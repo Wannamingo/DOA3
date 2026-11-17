@@ -17,11 +17,14 @@ int main(int argc,char **argv)
     setenv("RECOMP_LANGUAGE","en",1);
     setenv("RECOMP_FACE_SWAP","0",1);
     setenv("RECOMP_RENDER_SCALE","1",1);
+    unsetenv("RECOMP_ANDROID_ANGLE");
     std::vector<char *> game_args;
     for(int i=0;i<argc;++i){
         if(!std::strcmp(argv[i],"--android-display=4:3"))setenv("RECOMP_DISPLAY_ASPECT","4:3",1);
         else if(!std::strcmp(argv[i],"--android-display=source"))setenv("RECOMP_DISPLAY_ASPECT","source",1);
         else if(!std::strcmp(argv[i],"--android-display=16:9"))setenv("RECOMP_DISPLAY_ASPECT","16:9",1);
+        else if(!std::strcmp(argv[i],"--android-display=stretch"))setenv("RECOMP_DISPLAY_ASPECT","stretch",1);
+        else if(!std::strncmp(argv[i],"--android-angle=",16))setenv("RECOMP_ANDROID_ANGLE",argv[i]+16,1);
         else if(!std::strcmp(argv[i],"--android-language=en"))setenv("RECOMP_LANGUAGE","en",1);
         else if(!std::strcmp(argv[i],"--android-language=ru"))setenv("RECOMP_LANGUAGE","en",1);
         else if(!std::strcmp(argv[i],"--android-swap-buttons"))setenv("RECOMP_FACE_SWAP","1",1);

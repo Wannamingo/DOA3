@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
-<title>Dead or Alive 3</title>
+<title>DOA3 Recompiled</title>
 <link rel="stylesheet" href="launcher.css">
 <script src="launcher.js" defer></script>
 </head>
@@ -39,10 +39,11 @@
  <section class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" tabindex="-1">
   <div class="dialog-header"><div><span class="overline" data-i18n="preferences">ТВОЯ ИГРА</span><h1 id="settingsTitle" data-i18n="settings">Настройки</h1></div><button id="settingsClose" class="close-button" aria-label="Закрыть">×</button></div>
   <div class="settings-scroll">
-   <label class="field"><span><strong data-i18n="aspect">Формат экрана</strong><small data-i18n="aspectHint">Пропорции игрового изображения</small></span><select id="displayAspect"><option value="source" data-i18n="original">Исходные пропорции</option><option value="4:3">4:3</option><option value="16:9">16:9</option></select></label>
+   <label class="field"><span><strong data-i18n="aspect">Формат экрана</strong><small data-i18n="aspectHint">Пропорции игрового изображения</small></span><select id="displayAspect"><option value="source" data-i18n="original">Исходные пропорции</option><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="stretch" data-i18n="stretch">Растянуть на весь экран</option></select></label>
    <label class="field"><span><strong data-i18n="resolution">Внутреннее разрешение</strong><small data-i18n="resolutionHint">Качество отрисовки игры</small></span><select id="resolution"><option value="0" data-i18n="standard">1× · 720 × 480</option><option value="1" data-i18n="higher">2× · 1440 × 960</option><option value="2" data-i18n="highest">3× · 2160 × 1440</option></select></label>
    <label class="field"><span><strong data-i18n="touch">Экранные кнопки</strong><small data-i18n="touchHint">В режиме «Авто» скрыты с геймпадом</small></span><select id="touchControls"><option value="0" data-i18n="auto">Авто</option><option value="1" data-i18n="show">Показывать</option><option value="2" data-i18n="hide">Скрывать</option></select></label>
    <div class="field"><span><strong data-i18n="mapping">Назначение кнопок</strong><small data-i18n="mappingHint">Отдельные раскладки для экрана и геймпада</small></span><button id="mappingOpen" class="secondary-button" data-i18n="configure">Настроить</button></div>
+   <div class="field"><span><strong data-i18n="driver">Драйвер GPU</strong><small data-i18n="driverHint">Системный драйвер или импорт ANGLE</small></span><button id="driverOpen" class="secondary-button" data-i18n="configure">Настроить</button></div>
    <label class="field switch-field"><span><strong data-i18n="swap">Поменять A/B и X/Y</strong><small data-i18n="swapHint">Перестановка кнопок на геймпаде</small></span><input id="swapButtons" type="checkbox" role="switch"><span class="switch-track" aria-hidden="true"><span></span></span></label>
    <label class="field"><span><strong data-i18n="language">Язык</strong><small data-i18n="languageHint">Интерфейс и язык при запуске игры</small></span><select id="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
   </div>

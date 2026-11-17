@@ -86,7 +86,11 @@ extern "C" uint64_t recomp_android_presented_frames(void);
 extern "C" JNIEXPORT jlong JNICALL Java_org_doa3_port_GameActivity_nativePresentedFrames(JNIEnv *,jclass)
 {return jlong(recomp_android_presented_frames());}
 extern "C" JNIEXPORT void JNICALL Java_org_doa3_port_GameActivity_nativeDisplaySettings(JNIEnv *,jclass,jint scale,jint aspect)
-{if(scale>=1&&scale<=3&&aspect>=0&&aspect<=2)recomp_android_display_settings(unsigned(scale),unsigned(aspect));}
+{if(scale>=1&&scale<=3&&aspect>=0&&aspect<=3)recomp_android_display_settings(unsigned(scale),unsigned(aspect));}
+
+extern "C" bool recomp_android_consume_driver_fallback(void);
+extern "C" JNIEXPORT jboolean JNICALL Java_org_doa3_port_GameActivity_nativeConsumeDriverFallback(JNIEnv *,jclass)
+{return recomp_android_consume_driver_fallback() ? JNI_TRUE : JNI_FALSE;}
 extern "C" JNIEXPORT jint JNICALL Java_org_doa3_port_GameActivity_nativeConsumeDisplayFailure(JNIEnv *,jclass)
 {return jint(recomp_android_consume_display_failure());}
 extern "C" JNIEXPORT jfloat JNICALL Java_org_doa3_port_GameActivity_nativeGetFps(JNIEnv *,jclass)

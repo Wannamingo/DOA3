@@ -21,7 +21,7 @@ public class LauncherActivity extends Activity {
     private String text(String ru,String en){return english ? en : ru;}
     static String savedAspect(SharedPreferences preferences){
         String value=preferences.getString("displayAspect",null);
-        if("4:3".equals(value)||"16:9".equals(value)||"source".equals(value))return value;
+        if(BeachSettings.validAspect(value))return value;
         return preferences.getBoolean("aspectCorrected",false)&&preferences.getBoolean("display43",false) ? "4:3" : "source";
     }
     private void addChoice(LinearLayout layout,String title,Spinner choice){
@@ -30,7 +30,7 @@ public class LauncherActivity extends Activity {
         row.addView(choice,new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1));layout.addView(row);
     }
     private boolean saveOptions(){
-        String aspect=new String[]{"source","4:3","16:9"}[displayAspect.getSelectedItemPosition()];
+        String aspect=BeachSettings.aspectAt(displayAspect.getSelectedItemPosition());
         return preferences.edit().putString("displayAspect",aspect).putString("language",language.getSelectedItemPosition()==1 ? "en" : "ru")
             .putInt("resolution",resolution.getSelectedItemPosition()).putBoolean("swapButtons",swapButtons.isChecked())
             .putInt("touchControls",touchControls.getSelectedItemPosition()).commit();
@@ -40,10 +40,10 @@ public class LauncherActivity extends Activity {
         preferences=getSharedPreferences("controls",MODE_PRIVATE);
         english="en".equals(preferences.getString("language","ru"));
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);int pad=(int)(20*getResources().getDisplayMetrics().density);layout.setPadding(pad,pad,pad,pad);
-        TextView title=new TextView(this);title.setText("Dead or Alive 3");title.setTextSize(26);layout.addView(title);
+        TextView title=new TextView(this);title.setText("DOA3 Recompiled");title.setTextSize(26);layout.addView(title);
         status=new TextView(this);status.setPadding(0,pad,0,pad);layout.addView(status);
-        displayAspect=new Spinner(this);displayAspect.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{text("Исходные пропорции","Original proportions"),"4:3","16:9"}));
-        String aspect=savedAspect(preferences);displayAspect.setSelection("4:3".equals(aspect)?1:"16:9".equals(aspect)?2:0);addChoice(layout,text("Формат","Aspect ratio"),displayAspect);
+        displayAspect=new Spinner(this);displayAspect.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,BeachSettings.aspectLabels(english)));
+        displayAspect.setSelection(BeachSettings.aspectIndex(savedAspect(preferences)));addChoice(layout,text("Формат","Aspect ratio"),displayAspect);
         language=new Spinner(this);language.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Русский","English"}));language.setSelection(english?1:0);addChoice(layout,text("Язык приложения","App language"),language);
         swapButtons=new CheckBox(this);swapButtons.setText(text("Поменять A/B и X/Y на геймпаде","Swap A/B and X/Y on the gamepad"));swapButtons.setChecked(preferences.getBoolean("swapButtons",false));layout.addView(swapButtons);
         TextView touchLabel=new TextView(this);touchLabel.setText(text("Экранные кнопки","Touch controls"));layout.addView(touchLabel);
@@ -52,6 +52,8 @@ public class LauncherActivity extends Activity {
         resolution=new Spinner(this);resolution.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"1× — 720 × 480",text("2× — 1440 × 960","2× — 1440 × 960"),"3× — 2160 × 1440"}));resolution.setSelection(preferences.getInt("resolution",0));layout.addView(resolution);
         Button mappings=new Button(this);mappings.setText(text("Назначение кнопок","Button assignments"));layout.addView(mappings);
         mappings.setOnClickListener(v->{if(saveOptions())startActivity(new Intent(this,ControlMappingActivity.class));});
+        Button gpuDriver=new Button(this);gpuDriver.setText(text("Драйвер GPU","GPU driver"));layout.addView(gpuDriver);
+        gpuDriver.setOnClickListener(v->{if(!importing&&saveOptions())startActivity(new Intent(this,GpuDriverActivity.class));});
         play=new Button(this);play.setText(text("Играть","Play"));layout.addView(play);play.setOnClickListener(v->{if(saveOptions())startActivity(new Intent(this,GameActivity.class));else status.setText(text("Не удалось сохранить настройки.","Could not save settings."));});
         importButton=new Button(this);importButton.setText(text("Выбрать ISO · Читать напрямую","Select ISO · Read directly"));layout.addView(importButton);
         importButton.setOnClickListener(v->{Intent intent=IsoPicker.intent();startActivityForResult(intent,1);});
